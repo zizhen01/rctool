@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Tauri 打包时会把本文件合并进 .app 的 Info.plist。
+         缺少蓝牙用途声明的话，打包版访问 CoreBluetooth 会被 TCC 直接终止。 -->
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>RCTool 需要蓝牙权限以连接小米语音遥控器并接收语音。</string>
+</dict>
+</plist>

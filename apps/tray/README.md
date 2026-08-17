@@ -16,17 +16,27 @@ cargo run -p rctool-tray
 应用继续驻留（Dock/托盘）：点 Dock 图标（macOS Reopen）或托盘「显示主窗口」
 即可重新唤出。这是**主窗口 + 托盘并存**形态，不是纯菜单栏工具。
 
-## 打包（.app / .dmg）
+## tauri dev / 打包
 
-需要 tauri-cli：
+不装任何东西的日常开发就是 `cargo run -p rctool-tray`。想用 tauri-cli 的
+工作流（Rust 改动自动重启、前端改动自动刷新 webview）：
 
 ```bash
 cd apps/tray
-pnpm dlx @tauri-apps/cli@2 build
+npx --yes @tauri-apps/cli@2 dev
 ```
 
-产物在 `src-tauri/target/release/bundle/`。macOS 分发还需 Developer ID 签名
-与公证（见根 README 路线图）。
+打包（.app/.dmg、.msi/.nsis、.deb/.AppImage 按平台）：
+
+```bash
+cd apps/tray
+npx --yes @tauri-apps/cli@2 build
+```
+
+产物在仓库根 `target/release/bundle/`。调试小抄：debug 构建里网页右键 →
+“检查元素”可开 devtools；`src-tauri/Info.plist` 会被合并进打包版（蓝牙用途
+声明在此，缺了打包版会被 TCC 终止）；`Info.dev.plist` 只嵌进 `cargo run`
+的裸二进制。macOS 正式分发还需 Developer ID 签名与公证。
 
 ## 结构
 

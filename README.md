@@ -70,7 +70,11 @@ cargo build --release
    设备名为 `MI RC`。日常使用时遥控器作为系统 HID 已连接、不再广播，
    rctool 通过"按服务检索已连接设备"找到它（这正是选 bluest 而非 btleplug
    的原因：后者没有这条 API）。
-2. **安装回环驱动**：[BlackHole 2ch](https://existential.audio/blackhole/)。
+2. **安装回环驱动**：[BlackHole 2ch](https://existential.audio/blackhole/)
+   （开源免费的 CoreAudio 虚拟声卡：写进它输出端的音频会出现在它的输入端，
+   任何 app 都能把它当麦克风选中。替代品：Loopback（商业，最省心）、
+   Soundflower（年久失修，不推荐）；Windows 用 VB-Cable，Linux 免驱动，
+   `pactl load-module module-null-sink` 即可）。
 3. **蓝牙权限**：从 Terminal/iTerm 首次运行 `rctool scan` 时，macOS 会请求终端的
    蓝牙权限，允许即可。二进制已通过 `__TEXT,__info_plist` 嵌入
    `NSBluetoothAlwaysUsageDescription`（裸二进制缺它会被 TCC 直接 SIGABRT，
