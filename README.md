@@ -2,14 +2,14 @@
   <img src="docs/poster.svg" alt="RCTool：把小米蓝牙语音遥控器变成桌面麦克风" width="100%">
 </p>
 
+<p align="center">中文 | <a href="README.en.md">English</a></p>
+
 **当前适配：**
 
 - 小米蓝牙遥控器 v2（RC001）
 - 小米蓝牙遥控器 v2 Pro（RC003）
 
 市面遥控器种类繁多，欢迎提交 PR 适配更多型号。
-
-> ⚠️ 尚未接真实遥控器完成真机验收。
 
 ## 快速开始（macOS）
 
