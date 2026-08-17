@@ -77,78 +77,104 @@
           </label>
         </div>
         <div class="remote-wrap">
-          <svg viewBox="0 0 200 560" class="remote" id="remote-svg" aria-label="RC003 遥控器">
-            <!-- 银色机身 -->
-            <rect class="body" x="30" y="16" width="140" height="528" rx="46" />
-            <rect class="shine" x="40" y="34" width="9" height="486" rx="4.5" />
+          <svg viewBox="0 0 200 620" class="remote" id="remote-svg" aria-label="RC003 遥控器">
+            <defs>
+              <linearGradient id="bodyGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" class="bg-a" />
+                <stop offset="0.3" class="bg-b" />
+                <stop offset="1" class="bg-c" />
+              </linearGradient>
+              <radialGradient id="keyGrad" cx="0.5" cy="0.35" r="0.8">
+                <stop offset="0" class="kg-a" />
+                <stop offset="1" class="kg-b" />
+              </radialGradient>
+              <radialGradient id="okGrad" cx="0.5" cy="0.4" r="0.75">
+                <stop offset="0" class="og-a" />
+                <stop offset="1" class="og-b" />
+              </radialGradient>
+              <radialGradient id="padGrad" cx="0.5" cy="0.38" r="0.8">
+                <stop offset="0" class="pg-a" />
+                <stop offset="1" class="pg-b" />
+              </radialGradient>
+            </defs>
 
-            <!-- 顶部：电源 / 语音（描边圆环键）-->
+            <!-- 银色金属机身（1:3.97，照片实测比例）-->
+            <rect class="body" x="25" y="12" width="150" height="596" rx="44" />
+            <rect class="body-glint" x="26.5" y="13.5" width="147" height="593" rx="42.8" />
+
+            <!-- 顶部：电源 / 语音（细描边圆环键）-->
             <g class="key" data-button="power" tabindex="0" role="button" aria-label="电源">
-              <circle class="ring" cx="76" cy="72" r="22" />
-              <path class="ico" d="M70,69 A8.5,8.5 0 1 0 82,69" />
-              <line class="ico" x1="76" y1="61" x2="76" y2="71" />
+              <circle class="ring" cx="61.5" cy="55" r="19" />
+              <path class="ico" d="M55.5,52 A8.5,8.5 0 1 0 67.5,52" />
+              <line class="ico" x1="61.5" y1="44" x2="61.5" y2="54" />
             </g>
             <g class="key mic" data-button="mic" tabindex="0" role="button" aria-label="语音">
-              <circle class="ring" cx="124" cy="72" r="22" />
-              <rect class="ico-fill" x="120.5" y="62" width="7" height="12" rx="3.5" />
-              <path class="ico" d="M116.5,71 A7.5,7.5 0 0 0 131.5,71" />
-              <line class="ico" x1="124" y1="78.5" x2="124" y2="82.5" />
-              <line class="ico" x1="119.5" y1="82.5" x2="128.5" y2="82.5" />
+              <circle class="ring" cx="138.5" cy="55" r="19" />
+              <rect class="ico-fill" x="135" y="45" width="7" height="12" rx="3.5" />
+              <path class="ico" d="M131,54 A7.5,7.5 0 0 0 146,54" />
+              <line class="ico" x1="138.5" y1="61.5" x2="138.5" y2="65.5" />
+              <line class="ico" x1="134" y1="65.5" x2="143" y2="65.5" />
             </g>
 
-            <!-- 方向盘：深灰圆盘 + 四向扇区 + 中心 OK -->
-            <circle class="dpad-base" cx="100" cy="178" r="58" />
+            <!-- 大圆盘 touchpad（占机身宽 84%）：四向扇区 + 极点圆点 + 中心 OK -->
+            <circle class="dpad-base" cx="100" cy="146" r="63" />
             <g class="key" data-button="up" tabindex="0" role="button" aria-label="上">
-              <path class="sector" d="M62,137 A58,58 0 0 1 138,137 L124,157 A30,30 0 0 0 76,157 Z" />
+              <path class="sector" d="M57.57,103.57 A60,60 0 0 1 142.43,103.57 L126.52,119.48 A37.5,37.5 0 0 0 73.48,119.48 Z" />
             </g>
             <g class="key" data-button="right" tabindex="0" role="button" aria-label="右">
-              <path class="sector" d="M144,140 A58,58 0 0 1 144,216 L124,202 A30,30 0 0 0 124,154 Z" />
+              <path class="sector" d="M142.43,103.57 A60,60 0 0 1 142.43,188.43 L126.52,172.52 A37.5,37.5 0 0 0 126.52,119.48 Z" />
             </g>
             <g class="key" data-button="down" tabindex="0" role="button" aria-label="下">
-              <path class="sector" d="M138,219 A58,58 0 0 1 62,219 L76,199 A30,30 0 0 0 124,199 Z" />
+              <path class="sector" d="M142.43,188.43 A60,60 0 0 1 57.57,188.43 L73.48,172.52 A37.5,37.5 0 0 0 126.52,172.52 Z" />
             </g>
             <g class="key" data-button="left" tabindex="0" role="button" aria-label="左">
-              <path class="sector" d="M56,216 A58,58 0 0 1 56,140 L76,154 A30,30 0 0 0 76,202 Z" />
+              <path class="sector" d="M57.57,188.43 A60,60 0 0 1 57.57,103.57 L73.48,119.48 A37.5,37.5 0 0 0 73.48,172.52 Z" />
             </g>
-            <polygon class="dir-hint" points="100,132 104,139 96,139" />
-            <polygon class="dir-hint" points="100,224 96,217 104,217" />
-            <polygon class="dir-hint" points="54,178 61,174 61,182" />
-            <polygon class="dir-hint" points="146,178 139,174 139,182" />
+            <circle class="pad-dot" cx="100" cy="94" r="1.7" />
+            <circle class="pad-dot" cx="100" cy="198" r="1.7" />
+            <circle class="pad-dot" cx="48" cy="146" r="1.7" />
+            <circle class="pad-dot" cx="152" cy="146" r="1.7" />
             <g class="key" data-button="ok" tabindex="0" role="button" aria-label="确定">
-              <circle class="okcap" cx="100" cy="178" r="30" />
+              <circle class="okcap" cx="100" cy="146" r="37.5" />
             </g>
 
-            <!-- 下方六键：左列 返回/主页/菜单，右列 音量+/音量−/TV -->
+            <!-- 左列 返回/主页/菜单（圆键），右列 音量胶囊摇杆 + TV -->
             <g class="key" data-button="back" tabindex="0" role="button" aria-label="返回">
-              <circle class="cap" cx="76" cy="308" r="23" />
-              <polyline class="ico-w" points="80,300 72,308 80,316" />
+              <circle class="cap" cx="67.5" cy="243" r="21.5" />
+              <polyline class="ico-w" points="71,235.5 63.5,243 71,250.5" />
             </g>
             <g class="key" data-button="volume_up" tabindex="0" role="button" aria-label="音量加">
-              <circle class="cap" cx="124" cy="308" r="23" />
-              <line class="ico-w" x1="116" y1="308" x2="132" y2="308" />
-              <line class="ico-w" x1="124" y1="300" x2="124" y2="316" />
-            </g>
-            <g class="key" data-button="home" tabindex="0" role="button" aria-label="主页">
-              <circle class="cap" cx="76" cy="368" r="23" />
-              <path class="ico-w" d="M67,369 L76,360 L85,369 M69.5,366.5 L69.5,377 L82.5,377 L82.5,366.5" />
+              <path class="cap" d="M111,270.75 L111,243 A21.5,21.5 0 0 1 154,243 L154,270.75 Z" />
+              <line class="ico-w" x1="124.5" y1="243" x2="140.5" y2="243" />
+              <line class="ico-w" x1="132.5" y1="235" x2="132.5" y2="251" />
             </g>
             <g class="key" data-button="volume_down" tabindex="0" role="button" aria-label="音量减">
-              <circle class="cap" cx="124" cy="368" r="23" />
-              <line class="ico-w" x1="116" y1="368" x2="132" y2="368" />
+              <path class="cap" d="M111,270.75 L111,298.5 A21.5,21.5 0 0 0 154,298.5 L154,270.75 Z" />
+              <line class="ico-w" x1="124.5" y1="298.5" x2="140.5" y2="298.5" />
+            </g>
+            <line class="vol-seam" x1="115" y1="270.75" x2="150" y2="270.75" />
+            <g class="key" data-button="home" tabindex="0" role="button" aria-label="主页">
+              <circle class="cap" cx="67.5" cy="298.5" r="21.5" />
+              <path class="ico-w" d="M58.5,299.5 L67.5,290.5 L76.5,299.5 M61,297 L61,307.5 L74,307.5 L74,297" />
             </g>
             <g class="key" data-button="menu" tabindex="0" role="button" aria-label="菜单">
-              <circle class="cap" cx="76" cy="428" r="23" />
-              <line class="ico-w" x1="69" y1="422" x2="83" y2="422" />
-              <line class="ico-w" x1="69" y1="428" x2="83" y2="428" />
-              <line class="ico-w" x1="69" y1="434" x2="83" y2="434" />
+              <circle class="cap" cx="67.5" cy="355" r="21.5" />
+              <line class="ico-w" x1="60.5" y1="349" x2="74.5" y2="349" />
+              <line class="ico-w" x1="60.5" y1="355" x2="74.5" y2="355" />
+              <line class="ico-w" x1="60.5" y1="361" x2="74.5" y2="361" />
             </g>
             <g class="key" data-button="tv" tabindex="0" role="button" aria-label="TV">
-              <circle class="cap" cx="124" cy="428" r="23" />
-              <rect class="ico-w" x="115" y="421.5" width="18" height="13" rx="3" />
-              <text class="tv-label" x="124" y="431">TV</text>
+              <circle class="cap" cx="132.5" cy="355" r="21.5" />
+              <rect class="ico-w" x="123.5" y="348.5" width="18" height="13" rx="3" />
+              <text class="tv-label" x="132.5" y="357.6">TV</text>
             </g>
 
-            <text class="brand" x="100" y="512">xiaomi</text>
+            <!-- NFC 触碰区标记与品牌字 -->
+            <g class="nfc">
+              <rect x="92" y="450" width="16" height="15" rx="3.5" />
+              <text x="100" y="461.2">N</text>
+            </g>
+            <text class="brand" x="100" y="557">xiaomi</text>
           </svg>
         </div>
 
