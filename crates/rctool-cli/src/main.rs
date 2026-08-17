@@ -192,5 +192,5 @@ async fn cmd_run(
         fn_remap: !no_fn_remap,
         ..Default::default()
     };
-    bridge::run(&mut sink, &opts, &shutdown).await
+    bridge::run(&mut sink, &opts, &shutdown, None).await
 }

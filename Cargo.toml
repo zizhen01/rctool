@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/rctool-core", "crates/rctool-cli"]
+members = ["crates/rctool-core", "crates/rctool-cli", "apps/tray/src-tauri"]
 resolver = "2"
 
 [workspace.package]

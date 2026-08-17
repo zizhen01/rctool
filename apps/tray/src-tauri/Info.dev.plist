@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>dev.rctool.tray</string>
+    <key>CFBundleName</key>
+    <string>RCTool</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>RCTool 需要蓝牙权限以连接小米语音遥控器并接收语音。</string>
+    <key>LSUIElement</key>
+    <true/>
+</dict>
+</plist>

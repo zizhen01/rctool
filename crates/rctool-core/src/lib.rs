@@ -24,6 +24,9 @@ pub mod atvv;
 pub mod bridge;
 pub mod dsp;
 pub mod fnmap;
+#[cfg(target_os = "macos")]
+pub mod hidmap;
+pub mod keymap;
 pub mod loopback;
 pub mod session;
 pub mod sink;

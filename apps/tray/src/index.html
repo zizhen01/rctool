@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RCTool 设置</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="statusbar" id="statusbar" data-kind="stopped">
+      <span class="dot"></span>
+      <span id="status-text">已停止</span>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="connection">连接</button>
+      <button class="tab" data-tab="keys">按键</button>
+      <button class="tab" data-tab="permissions">权限</button>
+    </nav>
+
+    <main>
+      <!-- 连接 -->
+      <section class="page active" id="page-connection">
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title">语音输出设备</div>
+              <div class="hint">选择回环设备（BlackHole 等），其输入侧即成为虚拟麦克风</div>
+            </div>
+          </div>
+          <select id="output-select"></select>
+          <div class="warn" id="no-loopback" hidden>
+            未发现回环设备。请先安装 BlackHole 2ch（macOS），再点右上角刷新。
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title">增益</div>
+              <div class="hint">放大或减弱语音音量（<span id="gain-value">0.0</span> dB）</div>
+            </div>
+          </div>
+          <input type="range" id="gain" min="-24" max="24" step="0.5" value="0" />
+        </div>
+
+        <div class="card">
+          <label class="switch-row">
+            <div class="label">
+              <div class="title">按住麦克风键即听写</div>
+              <div class="hint">把遥控器麦克风键映射为 🌐（需在系统听写里选“按住 🌐”）</div>
+            </div>
+            <input type="checkbox" id="fn-remap" />
+          </label>
+        </div>
+
+        <button class="primary" id="toggle-bridge">启用桥接</button>
+      </section>
+
+      <!-- 按键 -->
+      <section class="page" id="page-keys">
+        <div class="card">
+          <label class="switch-row">
+            <div class="label">
+              <div class="title">启用按键映射</div>
+              <div class="hint">拦截 TV / 电源等键的原生行为并救活返回键（需权限）</div>
+            </div>
+            <input type="checkbox" id="key-mapping" />
+          </label>
+        </div>
+        <div id="buttons-list"></div>
+        <button class="ghost" id="reset-bindings">恢复默认映射</button>
+      </section>
+
+      <!-- 权限 -->
+      <section class="page" id="page-permissions">
+        <div class="card" id="perm-note">
+          <div class="hint">按键映射需要以下 macOS 权限。语音桥接本身只需蓝牙权限。</div>
+        </div>
+        <div class="card perm" id="perm-input">
+          <div class="label">
+            <div class="title">输入监控</div>
+            <div class="hint">读取遥控器按键所需</div>
+          </div>
+          <div class="perm-action">
+            <span class="badge" id="badge-input">检查中</span>
+            <button class="ghost sm" id="req-input">请求</button>
+          </div>
+        </div>
+        <div class="card perm" id="perm-ax">
+          <div class="label">
+            <div class="title">辅助功能</div>
+            <div class="hint">注入按键与拦截原生事件所需</div>
+          </div>
+          <div class="perm-action">
+            <span class="badge" id="badge-ax">检查中</span>
+            <button class="ghost sm" id="req-ax">打开设置</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="main.js"></script>
+  </body>
+</html>

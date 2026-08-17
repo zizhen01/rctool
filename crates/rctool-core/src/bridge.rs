@@ -8,12 +8,37 @@
 use anyhow::Context as _;
 use bluest::{Adapter, AdvertisingDevice, Characteristic, CharacteristicProperties, Device};
 use futures_lite::StreamExt;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
 
 use crate::atvv;
 use crate::session::{Action, AtvvSession};
 use crate::sink::AudioSink;
+
+/// 桥接对外可见的运行状态，供 UI（托盘/设置页）展示。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BridgeStatus {
+    /// 正在查找遥控器。
+    Searching,
+    /// 已连接（携带设备名）。
+    Connected(String),
+    /// 语音流进行中 / 结束。
+    Streaming(bool),
+    /// 已断开，等待重连。
+    Disconnected,
+    /// 出错（携带原因）。
+    Error(String),
+}
+
+/// 状态回调。跨 await 持有，故要求 `Send + Sync`。
+pub type StatusCallback = Arc<dyn Fn(BridgeStatus) + Send + Sync>;
+
+fn report(cb: &Option<StatusCallback>, status: BridgeStatus) {
+    if let Some(cb) = cb {
+        cb(status);
+    }
+}
 
 /// 小米遥控器已知的广播名（2 Pro / RC003 与普通款 / ARN9 同名同协议）。
 pub const NAME_CANDIDATES: [&str; 3] =
@@ -47,11 +72,13 @@ impl Default for BridgeOptions {
     }
 }
 
-/// 运行桥接直到 `shutdown` 触发。内部自动断线重连。
+/// 运行桥接直到 `shutdown` 触发。内部自动断线重连。`on_status` 可选，用于
+/// 向 UI 推送运行状态；CLI 传 `None`。
 pub async fn run(
     sink: &mut dyn AudioSink,
     opts: &BridgeOptions,
     shutdown: &CancellationToken,
+    on_status: Option<StatusCallback>,
 ) -> anyhow::Result<()> {
     let adapter = Adapter::default().await.context("没有可用的蓝牙适配器")?;
     adapter.wait_available().await.context("蓝牙适配器不可用")?;
@@ -59,12 +86,15 @@ pub async fn run(
         if shutdown.is_cancelled() {
             return Ok(());
         }
-        match connect_once(&adapter, sink, opts, shutdown).await {
+        report(&on_status, BridgeStatus::Searching);
+        match connect_once(&adapter, sink, opts, shutdown, &on_status).await {
             Ok(Ended::Shutdown) => return Ok(()),
             Ok(Ended::Disconnected) => {
+                report(&on_status, BridgeStatus::Disconnected);
                 log::warn!("连接结束，{:.0}s 后重连", opts.reconnect_delay.as_secs_f64());
             }
             Err(e) => {
+                report(&on_status, BridgeStatus::Error(format!("{e:#}")));
                 log::warn!("桥接中断: {e:#}；{:.0}s 后重试", opts.reconnect_delay.as_secs_f64());
             }
         }
@@ -163,6 +193,7 @@ async fn connect_once(
     sink: &mut dyn AudioSink,
     opts: &BridgeOptions,
     shutdown: &CancellationToken,
+    on_status: &Option<StatusCallback>,
 ) -> anyhow::Result<Ended> {
     let Some(device) = find_device(adapter, opts, shutdown).await? else {
         if shutdown.is_cancelled() {
@@ -175,6 +206,7 @@ async fn connect_once(
 
     let name = device.name().unwrap_or_else(|_| "未知设备".into());
     adapter.connect_device(&device).await.context("BLE 连接失败")?;
+    report(on_status, BridgeStatus::Connected(name.clone()));
     log::info!("BLE 已连接: {name}");
 
     // 型号只用于日志与识别（RC003 = 2 Pro，ARN9 = 普通款），读不到不阻塞。
@@ -262,11 +294,13 @@ async fn connect_once(
                 }
                 Action::StreamStarted => {
                     log::info!("语音流开始");
+                    report(on_status, BridgeStatus::Streaming(true));
                     sink.on_stream_start();
                 }
                 Action::Pcm(samples) => sink.push(&samples),
                 Action::StreamStopped => {
                     log::info!("语音流结束");
+                    report(on_status, BridgeStatus::Streaming(false));
                     sink.on_stream_stop();
                 }
                 Action::Fatal(reason) => fatal = Some(reason),

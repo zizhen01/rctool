@@ -1,0 +1,32 @@
+[package]
+name = "rctool-tray"
+description = "Xiaomi RC003 语音遥控器桥接 · 托盘应用"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+
+[lib]
+name = "rctool_tray_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "rctool-tray"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
+rctool-core = { path = "../../../crates/rctool-core" }
+tokio-util = "0.7"
+
+[features]
+# 让 tauri 在 release 里默认启用 custom-protocol
+custom-protocol = ["tauri/custom-protocol"]

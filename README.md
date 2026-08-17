@@ -18,13 +18,27 @@ RC003 ──BLE GATT/ATVV──▶ rctool ──PCM──▶ BlackHole ──▶
 - ✅ 编译通过（macOS，Rust 1.97），核心逻辑 25 个单元测试全绿
 - ✅ macOS F5→Fn/🌐 设备级重映射（`hidutil UserKeyMapping` 机制，仅作用于遥控器）：
   按住麦克风键 = 按住 Fn，系统听写自动开始/结束；退出与断开自动恢复原映射
+- ✅ macOS 按键映射（监听 + 关联拦截 + 注入）：规避 TV 反引号 / 电源关机对话框，
+  救活返回键（0xF1），12 键全可配置；恒等映射自动直通零开销
+- ✅ Tauri v2 菜单栏应用（`apps/tray`）：托盘图标 + 三页设置窗（连接/按键/权限），
+  配置持久化、状态实时推送、改键热生效
 - ✅ 协议层与解码器移植自已通过真机验收的 open-voice-bridge 实现（含其真机踩坑：
   AUDIO_START 竞态、8 kHz 回退拒绝、AUDIO_SYNC 重同步、能力响应固件怪癖）
 - ⏳ **本仓库代码尚未真机验收**：需要配对真实 RC003/ARN9 后跑通全链路
 - ⏳ Windows / Linux：依赖（bluest/cpal）跨平台，未在真机验证
 - 计划中：Tauri v2 tray 壳、按键自定义映射层
 
-## 构建与运行
+## 两种用法
+
+**菜单栏应用**（推荐，图形化配置）：
+
+```bash
+cargo run -p rctool-tray
+```
+
+菜单栏出现 RCTool 图标并打开设置窗。详见 [apps/tray/README.md](apps/tray/README.md)。
+
+**命令行**：
 
 ```bash
 cargo build --release
@@ -68,17 +82,28 @@ cargo build --release
 ## 仓库结构
 
 ```
-crates/rctool-core/         核心库（无 UI 依赖，Tauri 壳直接复用）
+crates/rctool-core/         核心库（无 UI 依赖，CLI 与 Tauri 壳共用）
   ├── atvv.rs               ATVV 协议常量与报文编解码（纯函数）
   ├── adpcm.rs              IMA/DVI ADPCM 解码器
   ├── dsp.rs                帧组装、平滑/增益、线性重采样
   ├── session.rs            单连接会话状态机（纯逻辑、注入时间、全可单测）
+  ├── keymap.rs             按键→动作模型 + 默认表 + 恒等直通判定（纯逻辑）
   ├── sink.rs               AudioSink trait + wav/扇出实现
   ├── loopback.rs           cpal 回环输出（专用音频线程 + 无锁环形缓冲）
   ├── fnmap.rs              macOS F5→Fn/🌐 设备级重映射（IOHID FFI，退出恢复）
+  ├── hidmap.rs             macOS 按键读取+拦截+注入（IOHIDManager/CGEvent FFI）
   └── bridge.rs             bluest 发现/连接/事件泵/断线重连
 crates/rctool-cli/          rctool 命令行（含 macOS Info.plist 嵌入）
+apps/tray/                  Tauri v2 菜单栏应用（前端纯静态，无构建步骤）
 ```
+
+### 按键映射设计
+
+配对后系统对方向/OK/音量键的原生行为就是对的，只有电源（会弹关机对话框）、
+TV（打出反引号）、返回（系统层死键 0xF1）需要处理。因此不独占设备（独占会
+废掉 F5→Fn 听写触发），而是：非独占读取 HID 边沿 → 对被改键的按钮用 CGEventTap
+按时序关联抵消其原生事件 → 注入映射动作。**恒等映射自动折叠为直通**，默认只有
+5 个键真正进入拦截路径，其余零开销原生放行。
 
 设计要点：
 

@@ -1,3 +1,6 @@
 /target
 *.wav
 .DS_Store
+# Tauri 生成物
+/apps/tray/src-tauri/gen/
+node_modules/
