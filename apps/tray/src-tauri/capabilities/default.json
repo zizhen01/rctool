@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "RCTool 设置窗口与托盘所需的最小权限",
-  "windows": ["settings"],
+  "description": "RCTool 主窗口与托盘所需的最小权限",
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "core:window:allow-show",

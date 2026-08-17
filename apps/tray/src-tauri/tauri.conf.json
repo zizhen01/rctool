@@ -10,14 +10,14 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "RCTool 设置",
-        "label": "settings",
+        "title": "RCTool",
+        "label": "main",
         "width": 520,
         "height": 720,
         "minWidth": 460,
         "minHeight": 560,
         "resizable": true,
-        "visible": false,
+        "visible": true,
         "center": true
       }
     ],

@@ -355,9 +355,11 @@ fn update_tray_tooltip(app: &AppHandle, text: &str) {
 // 应用装配
 // ---------------------------------------------------------------------------
 
-fn show_settings(app: &AppHandle) {
-    if let Some(win) = app.get_webview_window("settings") {
+/// 显示并聚焦主窗口（托盘菜单、Dock 点击、启动时共用）。
+fn show_main_window(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
         let _ = win.show();
+        let _ = win.unminimize();
         let _ = win.set_focus();
     }
 }
@@ -400,7 +402,7 @@ pub fn run() {
             });
 
             // 托盘菜单
-            let settings_item = MenuItem::with_id(app, "settings", "打开设置…", true, None::<&str>)?;
+            let settings_item = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
             let start_item = MenuItem::with_id(app, "start", "启用桥接", true, None::<&str>)?;
             let stop_item = MenuItem::with_id(app, "stop", "停用桥接", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "退出 RCTool", true, None::<&str>)?;
@@ -418,7 +420,7 @@ pub fn run() {
                 .tooltip("RCTool · 已停止")
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id().as_ref() {
-                    "settings" => show_settings(app),
+                    "show" => show_main_window(app),
                     "start" => {
                         let state = app.state::<AppState>();
                         if let Err(e) = start_bridge_inner(&state) {
@@ -460,18 +462,26 @@ pub fn run() {
                 .build(app)?;
 
             // 首次启动打开设置窗，方便用户配置。
-            show_settings(&handle);
+            show_main_window(&handle);
             Ok(())
         })
         .on_window_event(|window, event| {
-            // 关闭设置窗只隐藏，应用继续驻留托盘。
+            // 关闭主窗口只隐藏，应用继续驻留托盘 / Dock。
             if let WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() == "settings" {
+                if window.label() == "main" {
                     api.prevent_close();
                     let _ = window.hide();
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("启动 RCTool 失败");
+        .build(tauri::generate_context!())
+        .expect("启动 RCTool 失败")
+        .run(|app, event| {
+            // macOS：点击 Dock 图标（窗口已隐藏时）重新显示主窗口。
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                show_main_window(app);
+            }
+            let _ = (app, &event);
+        });
 }
