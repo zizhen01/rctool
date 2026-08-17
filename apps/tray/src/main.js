@@ -1,5 +1,7 @@
-const { invoke } = window.__TAURI__.core;
-const { listen } = window.__TAURI__.event;
+// 在 Tauri 之外（如浏览器直接预览）优雅降级，仅用于查看布局。
+const TAURI = window.__TAURI__;
+const invoke = TAURI ? TAURI.core.invoke : async () => { throw new Error("非 Tauri 环境"); };
+const listen = TAURI ? TAURI.event.listen : () => {};
 
 const $ = (sel) => document.querySelector(sel);
 
