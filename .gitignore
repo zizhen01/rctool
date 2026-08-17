@@ -4,3 +4,4 @@
 # Tauri 生成物
 /apps/tray/src-tauri/gen/
 node_modules/
+apps/tray/src-tauri/resources/*.pkg

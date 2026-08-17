@@ -257,15 +257,26 @@ fn request_permissions() {
     // Windows/Linux：桥接与听写触发不需要额外系统权限。
 }
 
-/// 回环设备缺失时的最轻引导（不打包驱动、不再分发）：
-/// macOS 优先走 Homebrew 安装 BlackHole（在终端中执行——cask 装 pkg 需要
-/// 管理员密码，必须有 TTY 交互），无 brew 才回退官网下载页；
-/// Windows 打开官方下载页（VB-Cable 许可禁止捆绑）；
-/// Linux 直接一键创建 null-sink，无需任何下载。
+/// 回环设备缺失时的安装引导，按平台与发行版本分级：
+/// - macOS full：内置 BlackHole 官方安装器（GPL-3.0 与本项目同证，可合法
+///   内嵌），用系统 Installer 图形向导打开，提权由系统处理；
+/// - macOS lite：有 Homebrew 则终端执行 brew install blackhole-2ch（cask 装
+///   pkg 需管理员密码，必须 TTY 交互），否则打开官网下载页；
+/// - Windows：VB-Cable 许可禁止捆绑文件，改为运行时从**官方源**下载并启动
+///   其安装器（等效 full 体验），失败回退打开官网；
+/// - Linux：直接创建 null-sink，无需任何下载。
 #[tauri::command]
-fn setup_loopback() -> Result<String, String> {
+fn setup_loopback(app: AppHandle) -> Result<String, String> {
+    let _ = &app;
     #[cfg(target_os = "macos")]
     {
+        if let Some(pkg) = bundled_blackhole_pkg(&app) {
+            std::process::Command::new("open")
+                .arg(&pkg)
+                .spawn()
+                .map_err(|e| format!("无法打开内置安装器: {e}"))?;
+            return Ok("已打开内置 BlackHole 安装器，按向导完成后点「重新检测」".into());
+        }
         if let Some(brew) = find_brew() {
             launch_brew_install_in_terminal(&brew)?;
             Ok("已在终端中开始安装 BlackHole（需要输入管理员密码）；完成后点「重新检测」".into())
@@ -276,8 +287,14 @@ fn setup_loopback() -> Result<String, String> {
     }
     #[cfg(target_os = "windows")]
     {
-        open_url("https://vb-audio.com/Cable/")?;
-        Ok("已打开 VB-Cable 下载页，安装完成后点「重新检测」".into())
+        match download_and_launch_vbcable() {
+            Ok(message) => Ok(message),
+            Err(e) => {
+                log::warn!("VB-Cable 自动获取失败，回退官网: {e}");
+                open_url("https://vb-audio.com/Cable/")?;
+                Ok("自动获取失败，已打开 VB-Cable 下载页；安装后点「重新检测」".into())
+            }
+        }
     }
     #[cfg(target_os = "linux")]
     {
@@ -295,6 +312,58 @@ fn setup_loopback() -> Result<String, String> {
         } else {
             Err("pactl 执行失败（需要 PulseAudio / PipeWire）".into())
         }
+    }
+}
+
+/// full 版内置的 BlackHole 安装器（resources/BlackHole*.pkg）；lite 版此目录
+/// 为空。按前缀扫描以免固定死版本号文件名。
+#[cfg(target_os = "macos")]
+fn bundled_blackhole_pkg(app: &AppHandle) -> Option<std::path::PathBuf> {
+    let dir = app
+        .path()
+        .resolve("resources", tauri::path::BaseDirectory::Resource)
+        .ok()?;
+    std::fs::read_dir(dir)
+        .ok()?
+        .filter_map(|entry| entry.ok().map(|e| e.path()))
+        .find(|path| {
+            path.file_name()
+                .and_then(|n| n.to_str())
+                .map(|n| n.starts_with("BlackHole") && n.ends_with(".pkg"))
+                .unwrap_or(false)
+        })
+}
+
+/// Windows：从 VB-Audio 官方源下载驱动包并启动安装器。不再分发文件——
+/// 下载发生在用户设备、来自官方 URL，等效于用户手动操作。
+#[cfg(target_os = "windows")]
+fn download_and_launch_vbcable() -> Result<String, String> {
+    // 官方直链版本号随官网更新；过期会 404，由调用方回退到打开网页。
+    const URL: &str = "https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip";
+    let dir = std::env::temp_dir().join("rctool-vbcable");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("创建临时目录失败: {e}"))?;
+    let zip = dir.join("VBCABLE_Driver_Pack.zip");
+    run_powershell(&format!("Invoke-WebRequest -Uri '{URL}' -OutFile '{}'", zip.display()))?;
+    run_powershell(&format!("Expand-Archive -Force '{}' '{}'", zip.display(), dir.display()))?;
+    let setup = dir.join("VBCABLE_Setup_x64.exe");
+    if !setup.exists() {
+        return Err("下载的安装包结构不符合预期".into());
+    }
+    // 驱动安装必须提权：RunAs 触发 UAC 确认。
+    run_powershell(&format!("Start-Process -FilePath '{}' -Verb RunAs", setup.display()))?;
+    Ok("已从官方源获取并启动 VB-Cable 安装器（需管理员确认）；装完点「重新检测」".into())
+}
+
+#[cfg(target_os = "windows")]
+fn run_powershell(command: &str) -> Result<(), String> {
+    let status = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", command])
+        .status()
+        .map_err(|e| format!("无法执行 PowerShell: {e}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("PowerShell 命令失败（{status}）"))
     }
 }
 

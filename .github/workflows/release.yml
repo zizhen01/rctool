@@ -42,10 +42,39 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 
+      # macOS full 版：内嵌 BlackHole 官方安装器（GPL-3.0 与本项目同证）。
+      # URL/sha256 取自 homebrew-cask blackhole-2ch 定义，升级时同步改这里。
+      - name: Fetch BlackHole installer (macOS full)
+        if: runner.os == 'macOS'
+        run: |
+          URL="https://existential.audio/downloads/BlackHole2ch-0.7.1.pkg"
+          SHA="57b540f27a3e29c37e310e01bee0fdfab76733087e47f997ef9dccf851400dcf"
+          curl -fL "$URL" -o apps/tray/src-tauri/resources/BlackHole2ch-0.7.1.pkg
+          echo "$SHA  apps/tray/src-tauri/resources/BlackHole2ch-0.7.1.pkg" | shasum -a 256 -c -
+
       # 前端是纯静态文件，无需 node 构建；tauri-cli 通过 npx 临时获取
       - name: Build Tauri bundles
         working-directory: apps/tray
         run: npx --yes @tauri-apps/cli@2 build --bundles ${{ matrix.bundles }}
+
+      # macOS 双版本：上面产出的是 full（默认名）；移除内嵌安装器后再打一份
+      # lite dmg。收集后清空 bundle 目录，避免通用收集步骤把 lite 当默认名。
+      - name: Package lite edition (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p dist
+          for f in target/release/bundle/dmg/*.dmg; do cp "$f" dist/; done
+          (cd target/release/bundle/macos && for a in *.app; do
+             zip -qr "$GITHUB_WORKSPACE/dist/${a%.app}-macos-app.zip" "$a"; done)
+          rm -f apps/tray/src-tauri/resources/*.pkg
+          (cd apps/tray && npx --yes @tauri-apps/cli@2 build --bundles dmg)
+          for f in target/release/bundle/dmg/*.dmg; do
+            base="$(basename "${f%.dmg}")"
+            cp "$f" "dist/${base}-lite.dmg"
+          done
+          rm -rf target/release/bundle/dmg target/release/bundle/macos
+          ls -la dist
 
       - name: Build CLI (release)
         run: cargo build --release -p rctool-cli

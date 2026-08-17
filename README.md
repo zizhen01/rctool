@@ -134,14 +134,25 @@ Service  AB5E0001-5A21-4F05-BC7D-AF01F617B664
 → 0x0A AUDIO_SYNC（丢包重同步）… → 松开 → 0x00 AUDIO_STOP
 ```
 
-## 回环驱动分发策略
+## 发行版本：full（默认）与 lite
 
-**不打包驱动，应用内提供最轻引导**（托盘应用连接页，未检测到回环设备时出现）：
+macOS 发行分两个版本，区别只在是否内嵌 BlackHole 官方安装器
+（GPL-3.0 与本项目同证，可合法内嵌；见 THIRD_PARTY_NOTICES.md）：
 
-| 平台 | 应用内行为 | 说明 |
+| 版本 | 产物名 | 「安装 BlackHole」按钮行为 |
 | --- | --- | --- |
-| macOS | 「安装 BlackHole」：检测到 Homebrew 则在终端执行 `brew install blackhole-2ch`（cask 装 pkg 需输管理员密码，故走终端），无 brew 才打开官网下载页 | 2ch 版本即可（语音为 16 kHz 单声道；16/64ch 面向 DAW 多轨路由）。BlackHole 为 GPL-3.0 与本项目同证，将来如需可合法内嵌安装器 |
-| Windows | 「下载 VB-Cable」打开官网 + 「重新检测」 | VB-Cable 闭源 donationware **禁止未授权再分发**，本就不可捆绑 |
+| **full**（默认） | `RCTool_x.y.z_aarch64.dmg` | 直接打开内嵌安装器（系统 Installer 向导，无需联网） |
+| lite | `RCTool_x.y.z_aarch64-lite.dmg` | 检测到 Homebrew 则终端执行 `brew install blackhole-2ch`，否则打开官网下载页 |
+
+代码同一份：应用启动时探测 `resources/` 内有无 `BlackHole*.pkg` 自动分级，
+构建时放不放这个文件即区分版本。选 2ch 版本即可（语音为 16 kHz 单声道；
+16/64ch 面向 DAW 多轨路由）。
+
+其余平台单一版本：
+
+| 平台 | 「安装」按钮行为 | 说明 |
+| --- | --- | --- |
+| Windows | 运行时从 **VB-Audio 官方源**下载驱动包并启动安装器（UAC 确认），失败回退打开官网 | VB-Cable 闭源 donationware 禁止再分发，不能内嵌文件；官方源运行时下载等效 full 体验 |
 | Linux | 「一键创建虚拟设备」直接 `pactl load-module module-null-sink` | 无需下载任何东西 |
 
 ## 许可证
