@@ -142,7 +142,60 @@ async function refreshButtons() {
     el.classList.toggle("selected", id === selectedButton);
   });
 
-  if (selectedButton) renderDetail(selectedButton);
+  buildTable(buttons);
+  updateNote();
+}
+
+/// 右侧映射表：语音固定行 + 12 个可映射键（每行内嵌动作下拉）。
+function buildTable(buttons) {
+  const tbody = $("#map-rows");
+  tbody.innerHTML = "";
+
+  const micRow = document.createElement("tr");
+  micRow.className = "maprow";
+  micRow.dataset.button = "mic";
+  micRow.innerHTML = '<td class="k">语音</td><td class="fixed">语音输入 / 听写（固定）</td>';
+  micRow.addEventListener("click", () => selectButton("mic"));
+  tbody.appendChild(micRow);
+
+  for (const b of buttons) {
+    const tr = document.createElement("tr");
+    tr.className = "maprow" + (b.managed ? " managed" : "");
+    tr.dataset.button = b.id;
+
+    const tdKey = document.createElement("td");
+    tdKey.className = "k";
+    tdKey.innerHTML = `${b.label}<span class="dot"></span>`;
+
+    const tdAction = document.createElement("td");
+    const sel = document.createElement("select");
+    for (const a of actionsCache) {
+      const opt = document.createElement("option");
+      opt.value = a.id;
+      opt.textContent = a.label;
+      if (a.id === b.action_id) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    sel.addEventListener("click", (e) => e.stopPropagation());
+    sel.addEventListener("change", async (e) => {
+      await invoke("set_binding", { buttonId: b.id, actionId: e.target.value });
+      selectedButton = b.id;
+      await refreshButtons();
+    });
+    tdAction.appendChild(sel);
+
+    tr.appendChild(tdKey);
+    tr.appendChild(tdAction);
+    tr.addEventListener("click", () => selectButton(b.id));
+    tbody.appendChild(tr);
+  }
+  syncRowSelection();
+}
+
+function syncRowSelection() {
+  document.querySelectorAll("#map-rows .maprow").forEach((tr) => {
+    tr.classList.toggle("selected", tr.dataset.button === selectedButton);
+  });
 }
 
 function selectButton(id) {
@@ -150,53 +203,31 @@ function selectButton(id) {
   document.querySelectorAll(".remote .key").forEach((el) => {
     el.classList.toggle("selected", el.dataset.button === id);
   });
-  renderDetail(id);
+  syncRowSelection();
+  const row = document.querySelector(`#map-rows .maprow[data-button="${id}"]`);
+  if (row) row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  updateNote();
 }
 
-function renderDetail(id) {
-  const empty = $("#kd-empty");
-  const body = $("#kd-body");
-  const b = buttonsById[id];
-
-  // 麦克风键：显示固定说明，无下拉。
-  if (id === "mic") {
-    empty.hidden = true;
-    body.hidden = false;
-    $("#kd-name").textContent = "语音键";
-    $("#kd-note").textContent = MIC_NOTE;
-    $("#kd-tag").hidden = true;
-    $("#kd-action").hidden = true;
+function updateNote() {
+  const note = $("#key-note");
+  if (!selectedButton) {
+    note.textContent = "点击遥控器按键或表格行查看说明";
     return;
   }
-  // Apple TV 款独有键：RC003 上无对应实体键，不可映射。
+  if (selectedButton === "mic") {
+    note.textContent = "语音键：" + MIC_NOTE;
+    return;
+  }
+  const b = buttonsById[selectedButton];
   if (!b) {
-    empty.hidden = true;
-    body.hidden = false;
-    $("#kd-name").textContent = (EXTRA_KEYS[id] || id) + "键";
-    $("#kd-note").textContent = "此布局键在小米 RC003 上无对应实体键，暂未接入映射";
-    $("#kd-tag").hidden = true;
-    $("#kd-action").hidden = true;
+    note.textContent =
+      (EXTRA_KEYS[selectedButton] || selectedButton) +
+      "键：此布局键在小米 RC003 上无对应实体键，暂未接入映射";
     return;
   }
-
-  empty.hidden = true;
-  body.hidden = false;
-  $("#kd-action").hidden = false;
-  $("#kd-name").textContent = b.label + "键";
-  $("#kd-note").textContent = b.managed ? "已改变默认行为" : "保持系统原生行为";
-  const tag = $("#kd-tag");
-  tag.hidden = !b.managed;
-  tag.className = "badge tag-on";
-
-  const sel = $("#kd-action");
-  sel.innerHTML = "";
-  for (const a of actionsCache) {
-    const opt = document.createElement("option");
-    opt.value = a.id;
-    opt.textContent = a.label;
-    if (a.id === b.action_id) opt.selected = true;
-    sel.appendChild(opt);
-  }
+  note.textContent =
+    b.label + "键：" + (b.managed ? "已改变默认行为（拦截原生并注入所选动作）" : "保持系统原生行为");
 }
 
 // 遥控器样式切换（两套 SVG 布局，热点共用同一按钮模型）。
@@ -228,12 +259,6 @@ document.querySelectorAll(".remote .key").forEach((el) => {
       selectButton(id);
     }
   });
-});
-
-$("#kd-action").addEventListener("change", async (e) => {
-  if (!selectedButton) return;
-  await invoke("set_binding", { buttonId: selectedButton, actionId: e.target.value });
-  await refreshButtons();
 });
 
 $("#key-mapping").addEventListener("change", async (e) => {

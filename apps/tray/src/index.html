@@ -76,12 +76,14 @@
             <input type="checkbox" id="key-mapping" />
           </label>
         </div>
-        <div class="seg" id="remote-style" role="tablist" aria-label="遥控器样式">
-          <button class="seg-btn active" data-style="rc003">小米 RC003</button>
-          <button class="seg-btn" data-style="atv">Apple TV 款</button>
-        </div>
+        <div class="keys-layout">
+          <div class="keys-left">
+            <div class="seg" id="remote-style" role="tablist" aria-label="遥控器样式">
+              <button class="seg-btn active" data-style="rc003">RC003</button>
+              <button class="seg-btn" data-style="atv">Apple TV</button>
+            </div>
 
-        <div class="remote-wrap" id="wrap-rc003">
+            <div class="remote-wrap" id="wrap-rc003">
           <svg viewBox="0 0 200 620" class="remote" id="remote-svg" aria-label="RC003 遥控器">
             <defs>
               <linearGradient id="bodyGrad" x1="0" y1="0" x2="1" y2="0">
@@ -273,22 +275,19 @@
             </g>
             <line class="vol-seam" x1="115" y1="302.3" x2="154" y2="302.3" />
           </svg>
-        </div>
-
-        <div class="card key-detail">
-          <div class="hint" id="kd-empty">点击遥控器上的按键进行设置</div>
-          <div id="kd-body" hidden>
-            <div class="row">
-              <div class="label">
-                <div class="title" id="kd-name"></div>
-                <div class="hint" id="kd-note"></div>
-              </div>
-              <span class="badge" id="kd-tag" hidden>已接管</span>
             </div>
-            <select id="kd-action"></select>
+          </div>
+
+          <div class="keys-right">
+            <div class="card map-table">
+              <table>
+                <tbody id="map-rows"></tbody>
+              </table>
+            </div>
+            <div class="hint" id="key-note">点击遥控器按键或表格行查看说明</div>
+            <button class="ghost" id="reset-bindings">恢复默认映射</button>
           </div>
         </div>
-        <button class="ghost" id="reset-bindings">恢复默认映射</button>
       </section>
 
       <!-- 权限 -->

@@ -207,12 +207,85 @@ button.ghost.sm { padding: 5px 12px; font-size: 12px; font-weight: 500; }
 .badge.ok { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--ok); }
 .badge.no { background: color-mix(in srgb, var(--err) 20%, transparent); color: var(--err); }
 
-#page-keys[data-enabled="false"] .remote-wrap,
-#page-keys[data-enabled="false"] .seg,
-#page-keys[data-enabled="false"] .key-detail,
-#page-keys[data-enabled="false"] #reset-bindings {
+#page-keys[data-enabled="false"] .keys-layout {
   opacity: 0.45;
   pointer-events: none;
+}
+
+/* 按键页左右布局：左实物图，右映射表 */
+.keys-layout {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.keys-left {
+  flex: none;
+  width: 172px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.keys-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+@media (max-width: 560px) {
+  .keys-layout { flex-direction: column; align-items: center; }
+  .keys-left { width: 220px; }
+  .keys-right { width: 100%; }
+}
+
+/* 映射表 */
+.map-table {
+  padding: 2px 0;
+}
+.map-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.map-table td {
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+}
+.map-table tr:first-child td {
+  border-top: none;
+}
+.map-table td.k {
+  width: 34%;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.map-table td.fixed {
+  color: var(--hint);
+  font-size: 11.5px;
+}
+.map-table select {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.maprow {
+  cursor: pointer;
+}
+.maprow.selected td {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.maprow .dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-left: 6px;
+  vertical-align: 1px;
+  opacity: 0;
+}
+.maprow.managed .dot {
+  opacity: 1;
 }
 
 /* 分段切换（遥控器样式）*/
@@ -295,6 +368,10 @@ button.ghost.sm { padding: 5px 12px; font-size: 12px; font-weight: 500; }
   display: flex;
   justify-content: center;
   padding: 6px 0 2px;
+}
+/* display:flex 会盖过 [hidden] 的 UA 样式，必须显式补回 */
+.remote-wrap[hidden] {
+  display: none;
 }
 .remote {
   width: 146px;
