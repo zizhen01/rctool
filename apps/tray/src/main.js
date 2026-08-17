@@ -30,7 +30,7 @@ let running = false;
 let platform = "macos";
 
 const LOOPBACK_HINTS = {
-  macos: { text: "未发现回环设备。语音需要写入 BlackHole 才能成为虚拟麦克风。", btn: "下载 BlackHole" },
+  macos: { text: "未发现回环设备。语音需要写入 BlackHole 才能成为虚拟麦克风。", btn: "安装 BlackHole" },
   windows: { text: "未发现回环设备。语音需要写入 VB-Cable 才能成为虚拟麦克风。", btn: "下载 VB-Cable" },
   linux: { text: "未发现回环设备。可直接创建一个 PipeWire/Pulse 虚拟设备。", btn: "一键创建虚拟设备" },
 };

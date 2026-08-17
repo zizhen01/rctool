@@ -257,14 +257,22 @@ fn request_permissions() {
     // Windows/Linux：桥接与听写触发不需要额外系统权限。
 }
 
-/// 回环设备缺失时的最轻引导：mac/win 打开官方下载页（不打包、不再分发，
-/// 规避 VB-Cable 的许可限制）；Linux 直接一键创建 null-sink，无需任何下载。
+/// 回环设备缺失时的最轻引导（不打包驱动、不再分发）：
+/// macOS 优先走 Homebrew 安装 BlackHole（在终端中执行——cask 装 pkg 需要
+/// 管理员密码，必须有 TTY 交互），无 brew 才回退官网下载页；
+/// Windows 打开官方下载页（VB-Cable 许可禁止捆绑）；
+/// Linux 直接一键创建 null-sink，无需任何下载。
 #[tauri::command]
 fn setup_loopback() -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
-        open_url("https://existential.audio/blackhole/")?;
-        Ok("已打开 BlackHole 下载页，安装完成后点「重新检测」".into())
+        if let Some(brew) = find_brew() {
+            launch_brew_install_in_terminal(&brew)?;
+            Ok("已在终端中开始安装 BlackHole（需要输入管理员密码）；完成后点「重新检测」".into())
+        } else {
+            open_url("https://existential.audio/blackhole/")?;
+            Ok("未检测到 Homebrew，已打开 BlackHole 下载页；安装后点「重新检测」".into())
+        }
     }
     #[cfg(target_os = "windows")]
     {
@@ -288,6 +296,37 @@ fn setup_loopback() -> Result<String, String> {
             Err("pactl 执行失败（需要 PulseAudio / PipeWire）".into())
         }
     }
+}
+
+#[cfg(target_os = "macos")]
+fn find_brew() -> Option<String> {
+    ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
+        .iter()
+        .find(|p| std::path::Path::new(p).exists())
+        .map(|s| s.to_string())
+}
+
+/// 生成一次性 .command 脚本并用 Terminal 打开执行。`open` 一个 .command
+/// 文件会让 Terminal 运行它——用户在终端里看到进度并输入 sudo 密码，
+/// 且无需向本应用授予 AppleScript 自动化权限。
+#[cfg(target_os = "macos")]
+fn launch_brew_install_in_terminal(brew: &str) -> Result<(), String> {
+    use std::os::unix::fs::PermissionsExt;
+    // 语音是 16 kHz 单声道，2ch 版本足够（16/64ch 面向 DAW 多轨路由）。
+    let script = format!(
+        "#!/bin/zsh\nset -e\necho 'RCTool: 通过 Homebrew 安装 BlackHole (2ch)…'\n\
+         \"{brew}\" install blackhole-2ch\necho\n\
+         echo '安装完成。回到 RCTool 点「重新检测」即可选择 BlackHole 2ch。'\n"
+    );
+    let path = std::env::temp_dir().join("rctool-install-blackhole.command");
+    std::fs::write(&path, script).map_err(|e| format!("写入安装脚本失败: {e}"))?;
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755))
+        .map_err(|e| format!("设置脚本权限失败: {e}"))?;
+    std::process::Command::new("open")
+        .arg(&path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("无法打开终端执行安装: {e}"))
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]

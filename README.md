@@ -140,7 +140,7 @@ Service  AB5E0001-5A21-4F05-BC7D-AF01F617B664
 
 | 平台 | 应用内行为 | 说明 |
 | --- | --- | --- |
-| macOS | 「下载 BlackHole」打开官网 + 「重新检测」 | BlackHole 为 GPL-3.0 与本项目同证，将来如需可合法内嵌安装器；当前刻意不打包保持轻量 |
+| macOS | 「安装 BlackHole」：检测到 Homebrew 则在终端执行 `brew install blackhole-2ch`（cask 装 pkg 需输管理员密码，故走终端），无 brew 才打开官网下载页 | 2ch 版本即可（语音为 16 kHz 单声道；16/64ch 面向 DAW 多轨路由）。BlackHole 为 GPL-3.0 与本项目同证，将来如需可合法内嵌安装器 |
 | Windows | 「下载 VB-Cable」打开官网 + 「重新检测」 | VB-Cable 闭源 donationware **禁止未授权再分发**，本就不可捆绑 |
 | Linux | 「一键创建虚拟设备」直接 `pactl load-module module-null-sink` | 无需下载任何东西 |
 
