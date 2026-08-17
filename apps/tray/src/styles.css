@@ -207,8 +207,185 @@ button.ghost.sm { padding: 5px 12px; font-size: 12px; font-weight: 500; }
 .badge.ok { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--ok); }
 .badge.no { background: color-mix(in srgb, var(--err) 20%, transparent); color: var(--err); }
 
-#page-keys[data-enabled="false"] #buttons-list,
+#page-keys[data-enabled="false"] .remote-wrap,
+#page-keys[data-enabled="false"] .key-detail,
 #page-keys[data-enabled="false"] #reset-bindings {
   opacity: 0.45;
   pointer-events: none;
+}
+
+/* 遥控器实物图（仿真机：银色机身 + 深灰键）*/
+:root {
+  --remote-body: #e6e6e8;
+  --remote-edge: #c2c2c6;
+  --remote-glyph: #55555a;
+  --dpad-base: #4a4a4d;
+  --dpad-center: #5a5a5e;
+  --key-dark: #3d3d41;
+  --key-icon: #ededf0;
+  --remote-brand: #a2a2a6;
+  --dir-hint: #7a7a7e;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --remote-body: #48484b;
+    --remote-edge: #2e2e30;
+    --remote-glyph: #cfcfd4;
+    --dpad-base: #363638;
+    --dpad-center: #444448;
+    --key-dark: #2b2b2e;
+    --key-icon: #e8e8ea;
+    --remote-brand: #7a7a7e;
+    --dir-hint: #6a6a6e;
+  }
+}
+
+.remote-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 2px;
+}
+.remote {
+  width: 150px;
+  height: auto;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.remote .body {
+  fill: var(--remote-body);
+  stroke: var(--remote-edge);
+  stroke-width: 1;
+}
+.remote .shine {
+  fill: #ffffff;
+  opacity: 0.16;
+  pointer-events: none;
+}
+.remote .dpad-base {
+  fill: var(--dpad-base);
+}
+.remote .dir-hint {
+  fill: var(--dir-hint);
+  pointer-events: none;
+}
+.remote .brand {
+  fill: var(--remote-brand);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+/* 顶部描边圆环键（电源 / 语音）*/
+.remote .ring {
+  fill: none;
+  stroke: var(--remote-glyph);
+  stroke-opacity: 0.4;
+  stroke-width: 1.5;
+}
+.remote .ico {
+  fill: none;
+  stroke: var(--remote-glyph);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.remote .ico-fill {
+  fill: var(--remote-glyph);
+}
+
+/* 下方深灰实心圆键 + 白色图标 */
+.remote .cap {
+  fill: var(--key-dark);
+  transition: fill 0.12s;
+}
+.remote .okcap {
+  fill: var(--dpad-center);
+  transition: fill 0.12s;
+}
+.remote .ico-w {
+  fill: none;
+  stroke: var(--key-icon);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.remote .tv-label {
+  fill: var(--key-icon);
+  font-size: 7px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.remote .sector {
+  fill: transparent;
+}
+
+/* 交互态：hover / 已接管(managed) / 选中(selected) */
+.remote .key {
+  cursor: pointer;
+}
+.remote .key:focus {
+  outline: none;
+}
+.remote .key:hover .cap {
+  fill: color-mix(in srgb, var(--accent) 32%, var(--key-dark));
+}
+.remote .key:hover .okcap {
+  fill: color-mix(in srgb, var(--accent) 32%, var(--dpad-center));
+}
+.remote .key:hover .sector {
+  fill: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.remote .key:hover .ring {
+  stroke: var(--accent);
+  stroke-opacity: 1;
+}
+
+.remote .key.managed .cap,
+.remote .key.managed .okcap {
+  fill: var(--accent);
+}
+.remote .key.managed .sector {
+  fill: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.remote .key.managed .ring {
+  stroke: var(--accent);
+  stroke-opacity: 1;
+  stroke-width: 2;
+}
+.remote .key.managed .ico-w {
+  stroke: #ffffff;
+}
+
+.remote .key.selected .cap,
+.remote .key.selected .okcap {
+  stroke: #ffffff;
+  stroke-width: 2.5;
+}
+.remote .key.selected .sector {
+  fill: color-mix(in srgb, var(--accent) 32%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.remote .key.selected .ring {
+  stroke: var(--accent);
+  stroke-opacity: 1;
+  stroke-width: 2.5;
+}
+
+/* 语音键：始终点出其固定用途 */
+.remote .key.mic .ring {
+  stroke: var(--accent);
+  stroke-opacity: 0.85;
+}
+
+.key-detail .badge.tag-on {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent);
+}
+#kd-action {
+  margin-top: 10px;
 }

@@ -114,8 +114,13 @@ async function syncRunning() {
   btn.classList.toggle("running", running);
 }
 
-// ---- 按键页 ----
+// ---- 按键页（遥控器实物图 + 可点热点）----
 let actionsCache = null;
+let buttonsById = {};
+let selectedButton = null;
+
+// 麦克风键固定用途，不进入通用映射。
+const MIC_NOTE = "固定用于 RC003 语音 / 系统听写，不可改";
 
 async function refreshButtons() {
   if (!actionsCache) actionsCache = await invoke("get_actions");
@@ -124,30 +129,81 @@ async function refreshButtons() {
   $("#key-mapping").checked = cfg.key_mapping;
   $("#page-keys").dataset.enabled = cfg.key_mapping;
 
-  const list = $("#buttons-list");
-  list.innerHTML = "";
-  for (const b of buttons) {
-    const item = document.createElement("div");
-    item.className = "button-item";
-    const key = document.createElement("span");
-    key.className = "key";
-    key.textContent = b.label;
-    const sel = document.createElement("select");
-    for (const a of actionsCache) {
-      const opt = document.createElement("option");
-      opt.value = a.id;
-      opt.textContent = a.label;
-      if (a.id === b.action_id) opt.selected = true;
-      sel.appendChild(opt);
-    }
-    sel.addEventListener("change", (e) => {
-      invoke("set_binding", { buttonId: b.id, actionId: e.target.value });
-    });
-    item.appendChild(key);
-    item.appendChild(sel);
-    list.appendChild(item);
+  buttonsById = {};
+  for (const b of buttons) buttonsById[b.id] = b;
+
+  // 在实物图上标出"已接管行为"的键。
+  document.querySelectorAll(".remote .key").forEach((el) => {
+    const id = el.dataset.button;
+    const b = buttonsById[id];
+    el.classList.toggle("managed", !!(b && b.managed));
+    el.classList.toggle("selected", id === selectedButton);
+  });
+
+  if (selectedButton) renderDetail(selectedButton);
+}
+
+function selectButton(id) {
+  selectedButton = id;
+  document.querySelectorAll(".remote .key").forEach((el) => {
+    el.classList.toggle("selected", el.dataset.button === id);
+  });
+  renderDetail(id);
+}
+
+function renderDetail(id) {
+  const empty = $("#kd-empty");
+  const body = $("#kd-body");
+  const b = buttonsById[id];
+
+  // 麦克风键：显示固定说明，无下拉。
+  if (id === "mic" || !b) {
+    empty.hidden = true;
+    body.hidden = false;
+    $("#kd-name").textContent = "语音键";
+    $("#kd-note").textContent = MIC_NOTE;
+    $("#kd-tag").hidden = true;
+    $("#kd-action").hidden = true;
+    return;
+  }
+
+  empty.hidden = true;
+  body.hidden = false;
+  $("#kd-action").hidden = false;
+  $("#kd-name").textContent = b.label + "键";
+  $("#kd-note").textContent = b.managed ? "已改变默认行为" : "保持系统原生行为";
+  const tag = $("#kd-tag");
+  tag.hidden = !b.managed;
+  tag.className = "badge tag-on";
+
+  const sel = $("#kd-action");
+  sel.innerHTML = "";
+  for (const a of actionsCache) {
+    const opt = document.createElement("option");
+    opt.value = a.id;
+    opt.textContent = a.label;
+    if (a.id === b.action_id) opt.selected = true;
+    sel.appendChild(opt);
   }
 }
+
+// 绑定 SVG 热点点击 / 键盘可达。
+document.querySelectorAll(".remote .key").forEach((el) => {
+  const id = el.dataset.button;
+  el.addEventListener("click", () => selectButton(id));
+  el.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      selectButton(id);
+    }
+  });
+});
+
+$("#kd-action").addEventListener("change", async (e) => {
+  if (!selectedButton) return;
+  await invoke("set_binding", { buttonId: selectedButton, actionId: e.target.value });
+  await refreshButtons();
+});
 
 $("#key-mapping").addEventListener("change", async (e) => {
   await invoke("set_key_mapping", { enabled: e.target.checked });
@@ -157,7 +213,7 @@ $("#key-mapping").addEventListener("change", async (e) => {
 
 $("#reset-bindings").addEventListener("click", async () => {
   await invoke("reset_bindings");
-  refreshButtons();
+  await refreshButtons();
 });
 
 // ---- 权限页 ----

@@ -76,7 +76,95 @@
             <input type="checkbox" id="key-mapping" />
           </label>
         </div>
-        <div id="buttons-list"></div>
+        <div class="remote-wrap">
+          <svg viewBox="0 0 200 560" class="remote" id="remote-svg" aria-label="RC003 遥控器">
+            <!-- 银色机身 -->
+            <rect class="body" x="30" y="16" width="140" height="528" rx="46" />
+            <rect class="shine" x="40" y="34" width="9" height="486" rx="4.5" />
+
+            <!-- 顶部：电源 / 语音（描边圆环键）-->
+            <g class="key" data-button="power" tabindex="0" role="button" aria-label="电源">
+              <circle class="ring" cx="76" cy="72" r="22" />
+              <path class="ico" d="M70,69 A8.5,8.5 0 1 0 82,69" />
+              <line class="ico" x1="76" y1="61" x2="76" y2="71" />
+            </g>
+            <g class="key mic" data-button="mic" tabindex="0" role="button" aria-label="语音">
+              <circle class="ring" cx="124" cy="72" r="22" />
+              <rect class="ico-fill" x="120.5" y="62" width="7" height="12" rx="3.5" />
+              <path class="ico" d="M116.5,71 A7.5,7.5 0 0 0 131.5,71" />
+              <line class="ico" x1="124" y1="78.5" x2="124" y2="82.5" />
+              <line class="ico" x1="119.5" y1="82.5" x2="128.5" y2="82.5" />
+            </g>
+
+            <!-- 方向盘：深灰圆盘 + 四向扇区 + 中心 OK -->
+            <circle class="dpad-base" cx="100" cy="178" r="58" />
+            <g class="key" data-button="up" tabindex="0" role="button" aria-label="上">
+              <path class="sector" d="M62,137 A58,58 0 0 1 138,137 L124,157 A30,30 0 0 0 76,157 Z" />
+            </g>
+            <g class="key" data-button="right" tabindex="0" role="button" aria-label="右">
+              <path class="sector" d="M144,140 A58,58 0 0 1 144,216 L124,202 A30,30 0 0 0 124,154 Z" />
+            </g>
+            <g class="key" data-button="down" tabindex="0" role="button" aria-label="下">
+              <path class="sector" d="M138,219 A58,58 0 0 1 62,219 L76,199 A30,30 0 0 0 124,199 Z" />
+            </g>
+            <g class="key" data-button="left" tabindex="0" role="button" aria-label="左">
+              <path class="sector" d="M56,216 A58,58 0 0 1 56,140 L76,154 A30,30 0 0 0 76,202 Z" />
+            </g>
+            <polygon class="dir-hint" points="100,132 104,139 96,139" />
+            <polygon class="dir-hint" points="100,224 96,217 104,217" />
+            <polygon class="dir-hint" points="54,178 61,174 61,182" />
+            <polygon class="dir-hint" points="146,178 139,174 139,182" />
+            <g class="key" data-button="ok" tabindex="0" role="button" aria-label="确定">
+              <circle class="okcap" cx="100" cy="178" r="30" />
+            </g>
+
+            <!-- 下方六键：左列 返回/主页/菜单，右列 音量+/音量−/TV -->
+            <g class="key" data-button="back" tabindex="0" role="button" aria-label="返回">
+              <circle class="cap" cx="76" cy="308" r="23" />
+              <polyline class="ico-w" points="80,300 72,308 80,316" />
+            </g>
+            <g class="key" data-button="volume_up" tabindex="0" role="button" aria-label="音量加">
+              <circle class="cap" cx="124" cy="308" r="23" />
+              <line class="ico-w" x1="116" y1="308" x2="132" y2="308" />
+              <line class="ico-w" x1="124" y1="300" x2="124" y2="316" />
+            </g>
+            <g class="key" data-button="home" tabindex="0" role="button" aria-label="主页">
+              <circle class="cap" cx="76" cy="368" r="23" />
+              <path class="ico-w" d="M67,369 L76,360 L85,369 M69.5,366.5 L69.5,377 L82.5,377 L82.5,366.5" />
+            </g>
+            <g class="key" data-button="volume_down" tabindex="0" role="button" aria-label="音量减">
+              <circle class="cap" cx="124" cy="368" r="23" />
+              <line class="ico-w" x1="116" y1="368" x2="132" y2="368" />
+            </g>
+            <g class="key" data-button="menu" tabindex="0" role="button" aria-label="菜单">
+              <circle class="cap" cx="76" cy="428" r="23" />
+              <line class="ico-w" x1="69" y1="422" x2="83" y2="422" />
+              <line class="ico-w" x1="69" y1="428" x2="83" y2="428" />
+              <line class="ico-w" x1="69" y1="434" x2="83" y2="434" />
+            </g>
+            <g class="key" data-button="tv" tabindex="0" role="button" aria-label="TV">
+              <circle class="cap" cx="124" cy="428" r="23" />
+              <rect class="ico-w" x="115" y="421.5" width="18" height="13" rx="3" />
+              <text class="tv-label" x="124" y="431">TV</text>
+            </g>
+
+            <text class="brand" x="100" y="512">xiaomi</text>
+          </svg>
+        </div>
+
+        <div class="card key-detail">
+          <div class="hint" id="kd-empty">点击遥控器上的按键进行设置</div>
+          <div id="kd-body" hidden>
+            <div class="row">
+              <div class="label">
+                <div class="title" id="kd-name"></div>
+                <div class="hint" id="kd-note"></div>
+              </div>
+              <span class="badge" id="kd-tag" hidden>已接管</span>
+            </div>
+            <select id="kd-action"></select>
+          </div>
+        </div>
         <button class="ghost" id="reset-bindings">恢复默认映射</button>
       </section>
 

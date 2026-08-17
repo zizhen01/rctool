@@ -8,7 +8,7 @@ mod dictation;
 
 use config::Config;
 use rctool_core::bridge::{self, BridgeOptions, BridgeStatus, StatusCallback};
-use rctool_core::keymap::{Action, RemoteButton};
+use rctool_core::keymap::{Action, Disposition, RemoteButton};
 use rctool_core::loopback::{self, LoopbackSink};
 use rctool_core::sink::MultiSink;
 use serde::Serialize;
@@ -76,6 +76,8 @@ struct ButtonDto {
     id: String,
     label: String,
     action_id: String,
+    /// 该键是否真正接管了行为（拦截/注入），直通键为 false。
+    managed: bool,
 }
 
 #[derive(Serialize)]
@@ -168,6 +170,7 @@ fn get_buttons(state: State<AppState>) -> Vec<ButtonDto> {
             id: b.id().into(),
             label: b.label().into(),
             action_id: map.action(b).id().into(),
+            managed: !matches!(map.disposition(b), Disposition::Passthrough),
         })
         .collect()
 }
