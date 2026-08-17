@@ -75,6 +75,7 @@ $("#recheck-outputs").addEventListener("click", () => refreshOutputs());
 /// 按平台裁剪界面：F5→Fn 与按键映射仅 macOS；Win+H 仅 Windows。
 function applyPlatform() {
   const isMac = platform === "macos";
+  document.body.classList.toggle("mac", isMac);
   $("#card-fn-remap").hidden = !isMac;
   $("#card-win-hotkey").hidden = platform !== "windows";
   const keysTab = document.querySelector('.tab[data-tab="keys"]');

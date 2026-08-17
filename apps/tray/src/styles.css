@@ -33,6 +33,17 @@
   padding: 0;
 }
 
+/* 任何设置了 display 的类都会盖过 UA 的 [hidden]，全局兜底一次 */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  /* 无标题栏窗口下禁止文档级橡皮筋回弹 */
+  overscroll-behavior-y: none;
+}
+
 body {
   font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
   background: var(--bg);
@@ -61,6 +72,12 @@ body {
   border-radius: 50%;
   background: var(--hint);
   flex: none;
+}
+/* macOS Overlay 标题栏：状态条兼作拖拽区，左侧给红绿灯让位 */
+body.mac .statusbar {
+  padding-left: 82px;
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
 .statusbar[data-kind="connected"] .dot { background: var(--ok); }
 .statusbar[data-kind="searching"] .dot { background: var(--warn); animation: pulse 1.2s infinite; }
@@ -373,10 +390,6 @@ button.ghost.sm { padding: 5px 12px; font-size: 12px; font-weight: 500; }
   display: flex;
   justify-content: center;
   padding: 6px 0 2px;
-}
-/* display:flex 会盖过 [hidden] 的 UA 样式，必须显式补回 */
-.remote-wrap[hidden] {
-  display: none;
 }
 .remote {
   width: 146px;

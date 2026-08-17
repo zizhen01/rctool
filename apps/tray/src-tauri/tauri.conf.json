@@ -13,12 +13,14 @@
         "title": "RCTool",
         "label": "main",
         "width": 660,
-        "height": 700,
+        "height": 740,
         "minWidth": 600,
-        "minHeight": 540,
+        "minHeight": 560,
         "resizable": true,
         "visible": true,
-        "center": true
+        "center": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       }
     ],
     "security": {
