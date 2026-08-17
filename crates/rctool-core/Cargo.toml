@@ -1,0 +1,18 @@
+[package]
+name = "rctool-core"
+description = "Xiaomi RC003 语音遥控器桥接核心：ATVV 协议、ADPCM 解码、BLE 会话与音频输出"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = "1"
+bluest = "0.6"
+cpal = "0.15"
+futures-lite = "2"
+hound = "3.5"
+log = "0.4"
+ringbuf = "0.4"
+tokio = { version = "1", features = ["time", "macros", "sync", "rt"] }
+tokio-util = "0.7"
+uuid = "1"

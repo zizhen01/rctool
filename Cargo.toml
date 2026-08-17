@@ -1,0 +1,12 @@
+[workspace]
+members = ["crates/rctool-core", "crates/rctool-cli"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+
+[profile.release]
+lto = "thin"
+strip = true

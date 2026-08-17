@@ -1,0 +1,20 @@
+[package]
+name = "rctool-cli"
+description = "Xiaomi RC003 语音遥控器桥接 CLI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "rctool"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+env_logger = "0.11"
+futures-lite = "2"
+log = "0.4"
+rctool-core = { path = "../rctool-core" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+tokio-util = "0.7"
