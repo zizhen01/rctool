@@ -23,6 +23,7 @@ pub mod adpcm;
 pub mod atvv;
 pub mod bridge;
 pub mod dsp;
+pub mod fnmap;
 pub mod loopback;
 pub mod session;
 pub mod sink;

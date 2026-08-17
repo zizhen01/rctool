@@ -15,7 +15,9 @@ RC003 ──BLE GATT/ATVV──▶ rctool ──PCM──▶ BlackHole ──▶
 
 ## 状态
 
-- ✅ 编译通过（macOS，Rust 1.97），核心逻辑 23 个单元测试全绿
+- ✅ 编译通过（macOS，Rust 1.97），核心逻辑 25 个单元测试全绿
+- ✅ macOS F5→Fn/🌐 设备级重映射（`hidutil UserKeyMapping` 机制，仅作用于遥控器）：
+  按住麦克风键 = 按住 Fn，系统听写自动开始/结束；退出与断开自动恢复原映射
 - ✅ 协议层与解码器移植自已通过真机验收的 open-voice-bridge 实现（含其真机踩坑：
   AUDIO_START 竞态、8 kHz 回退拒绝、AUDIO_SYNC 重同步、能力响应固件怪癖）
 - ⏳ **本仓库代码尚未真机验收**：需要配对真实 RC003/ARN9 后跑通全链路
@@ -44,6 +46,9 @@ cargo build --release
 ./target/release/rctool run --wav test.wav
 ```
 
+`run` 默认同时把遥控器的 F5（麦克风键）设备级重映射为 Fn/🌐（`--no-fn-remap`
+关闭）；映射只影响遥控器这一台设备，进程退出或设备断开时自动恢复。
+
 ## macOS 首次使用
 
 1. **配对遥控器**：系统设置 → 蓝牙；遥控器长按 主页+菜单 进入配对模式，
@@ -56,7 +61,9 @@ cargo build --release
    `NSBluetoothAlwaysUsageDescription`（裸二进制缺它会被 TCC 直接 SIGABRT，
    见 `crates/rctool-cli/build.rs`）。若未弹框且闪退，在
    系统设置 → 隐私与安全性 → 蓝牙 里手动加入你的终端应用。
-4. **接上听写**：系统设置 → 键盘 → 听写：开启，麦克风来源选 BlackHole 2ch。
+4. **接上听写**：系统设置 → 键盘 → 听写：开启，快捷键选「按住 🌐」，
+   麦克风来源选 BlackHole 2ch。之后按住遥控器麦克风键即开始听写（rctool
+   已把该设备的 F5 重映射为 🌐），松开即结束。
 
 ## 仓库结构
 
@@ -68,6 +75,7 @@ crates/rctool-core/         核心库（无 UI 依赖，Tauri 壳直接复用）
   ├── session.rs            单连接会话状态机（纯逻辑、注入时间、全可单测）
   ├── sink.rs               AudioSink trait + wav/扇出实现
   ├── loopback.rs           cpal 回环输出（专用音频线程 + 无锁环形缓冲）
+  ├── fnmap.rs              macOS F5→Fn/🌐 设备级重映射（IOHID FFI，退出恢复）
   └── bridge.rs             bluest 发现/连接/事件泵/断线重连
 crates/rctool-cli/          rctool 命令行（含 macOS Info.plist 嵌入）
 ```

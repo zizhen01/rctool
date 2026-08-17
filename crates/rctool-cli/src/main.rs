@@ -49,6 +49,9 @@ enum Command {
         /// 断线重连间隔（秒）
         #[arg(long, default_value_t = 3)]
         reconnect: u64,
+        /// 关闭 F5→Fn/🌐 重映射（macOS；默认开启，按住麦克风键即触发系统听写）
+        #[arg(long)]
+        no_fn_remap: bool,
     },
 }
 
@@ -63,8 +66,8 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Command::Outputs => cmd_outputs(),
         Command::Scan { seconds } => cmd_scan(seconds).await,
-        Command::Run { output, wav, gain, reconnect } => {
-            cmd_run(output, wav, gain, reconnect).await
+        Command::Run { output, wav, gain, reconnect, no_fn_remap } => {
+            cmd_run(output, wav, gain, reconnect, no_fn_remap).await
         }
     }
 }
@@ -155,6 +158,7 @@ async fn cmd_run(
     wav: Option<PathBuf>,
     gain: f64,
     reconnect: u64,
+    no_fn_remap: bool,
 ) -> anyhow::Result<()> {
     let mut sinks: Vec<Box<dyn AudioSink>> = Vec::new();
     if let Some(name) = &output {
@@ -185,6 +189,7 @@ async fn cmd_run(
     let opts = BridgeOptions {
         gain_db: gain,
         reconnect_delay: Duration::from_secs(reconnect.max(1)),
+        fn_remap: !no_fn_remap,
         ..Default::default()
     };
     bridge::run(&mut sink, &opts, &shutdown).await

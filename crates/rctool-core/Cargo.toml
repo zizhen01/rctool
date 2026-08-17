@@ -16,3 +16,10 @@ ringbuf = "0.4"
 tokio = { version = "1", features = ["time", "macros", "sync", "rt"] }
 tokio-util = "0.7"
 uuid = "1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"
+core-foundation-sys = "0.8"
+
+[dev-dependencies]
+env_logger = "0.11"

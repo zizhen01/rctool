@@ -31,6 +31,9 @@ pub struct BridgeOptions {
     pub reconnect_delay: Duration,
     /// 单轮广播扫描的超时。
     pub scan_timeout: Duration,
+    /// macOS：连接后把遥控器的 F5（麦克风键）设备级重映射为 Fn/🌐，
+    /// 配合系统「按住 🌐 开始听写」实现按住即听写；退出/断开自动恢复。
+    pub fn_remap: bool,
 }
 
 impl Default for BridgeOptions {
@@ -39,6 +42,7 @@ impl Default for BridgeOptions {
             gain_db: 0.0,
             reconnect_delay: Duration::from_secs(3),
             scan_timeout: Duration::from_secs(15),
+            fn_remap: true,
         }
     }
 }
@@ -201,6 +205,20 @@ async fn connect_once(
         .context("订阅控制通道失败（若从未配对，请先在系统蓝牙设置中配对遥控器）")?;
     let mut audio_notifications = audio.notify().await.context("订阅音频通道失败")?;
 
+    // F5→Fn 重映射（仅 macOS）：设备此刻确定在场；断开/提前返回由
+    // VoiceKeyMapper 的 Drop 兜底恢复，重连循环里每轮重新应用。
+    let mut fn_mapper = (opts.fn_remap && cfg!(target_os = "macos"))
+        .then(crate::fnmap::VoiceKeyMapper::new);
+    if let Some(mapper) = fn_mapper.as_mut() {
+        match mapper.apply() {
+            Ok(0) => log::info!("未匹配到遥控器 HID 服务，本次跳过 F5→Fn 重映射"),
+            Ok(n) => log::info!(
+                "F5→Fn/🌐 已应用到 {n} 个 HID 服务；配合系统「按住 🌐 开始听写」即按住说话"
+            ),
+            Err(e) => log::warn!("F5→Fn 重映射失败（语音桥接不受影响）: {e:#}"),
+        }
+    }
+
     let tx_props = tx.properties().await.ok();
     let mut session = AtvvSession::new(opts.gain_db);
     write_tx(&tx, tx_props.as_ref(), &atvv::GET_CAPS).await.context("发送 GET_CAPS 失败")?;
@@ -260,8 +278,14 @@ async fn connect_once(
         }
     };
 
-    // 收尾：停流回调、补发 MIC_CLOSE、撤销本应用的连接兴趣。
+    // 收尾：恢复 F5 映射、停流回调、补发 MIC_CLOSE、撤销本应用的连接兴趣。
     // （CoreBluetooth 语义：disconnect 只取消本进程的连接，系统 HID 链接不受影响。）
+    if let Some(mapper) = fn_mapper.as_mut() {
+        let restored = mapper.restore();
+        if restored > 0 {
+            log::info!("已恢复 F5 原映射（{restored} 个 HID 服务）");
+        }
+    }
     session.finish(&mut actions);
     for action in actions.drain(..) {
         if let Action::StreamStopped = action {
