@@ -208,10 +208,37 @@ button.ghost.sm { padding: 5px 12px; font-size: 12px; font-weight: 500; }
 .badge.no { background: color-mix(in srgb, var(--err) 20%, transparent); color: var(--err); }
 
 #page-keys[data-enabled="false"] .remote-wrap,
+#page-keys[data-enabled="false"] .seg,
 #page-keys[data-enabled="false"] .key-detail,
 #page-keys[data-enabled="false"] #reset-bindings {
   opacity: 0.45;
   pointer-events: none;
+}
+
+/* 分段切换（遥控器样式）*/
+.seg {
+  display: flex;
+  gap: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 3px;
+}
+.seg-btn {
+  flex: 1;
+  padding: 5px 0;
+  border: none;
+  background: transparent;
+  color: var(--hint);
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.seg-btn.active {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow);
 }
 
 /* 遥控器实物图（照真机比例：银色金属机身 + 深灰键 + 音量胶囊摇杆）*/
@@ -368,6 +395,50 @@ button.ghost.sm { padding: 5px 12px; font-size: 12px; font-weight: 500; }
 }
 .remote .sector {
   fill: transparent;
+}
+
+/* Apple TV 款：近黑按键、白点、内圈缝线、MENU 字键、顶部麦克风孔 */
+.ak-a { stop-color: #3a3a3e; }
+.ak-b { stop-color: #222226; }
+.ap-a { stop-color: #323236; }
+.ap-b { stop-color: #1e1e21; }
+.aok-a { stop-color: #3e3e42; }
+.aok-b { stop-color: #2b2b2f; }
+@media (prefers-color-scheme: dark) {
+  .ak-a { stop-color: #333337; }
+  .ak-b { stop-color: #1c1c20; }
+  .ap-a { stop-color: #2c2c30; }
+  .ap-b { stop-color: #19191c; }
+  .aok-a { stop-color: #37373b; }
+  .aok-b { stop-color: #252529; }
+}
+.remote.atv .cap { fill: url(#akGrad); }
+.remote.atv .dpad-base { fill: url(#apGrad); }
+.remote.atv .okcap { fill: url(#aokGrad); }
+.remote.atv .pad-dot { fill: #dedee2; }
+.remote .pad-seam {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 1.4;
+  pointer-events: none;
+}
+.remote .mic-hole {
+  fill: var(--pad-dot);
+  opacity: 0.7;
+}
+.remote .menu-label {
+  fill: #ffffff;
+  font-size: 5.2px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.remote.atv .ico-w {
+  stroke-width: 1.9;
+}
+.remote .ico-w.thin {
+  stroke-width: 1.5;
 }
 
 /* 交互态：hover / 已接管(managed) / 选中(selected) */

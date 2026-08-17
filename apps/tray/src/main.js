@@ -121,6 +121,8 @@ let selectedButton = null;
 
 // 麦克风键固定用途，不进入通用映射。
 const MIC_NOTE = "固定用于 RC003 语音 / 系统听写，不可改";
+// Apple TV 款布局独有、RC003 无对应实体键的键。
+const EXTRA_KEYS = { play_pause: "播放 / 暂停", mute: "静音" };
 
 async function refreshButtons() {
   if (!actionsCache) actionsCache = await invoke("get_actions");
@@ -157,11 +159,21 @@ function renderDetail(id) {
   const b = buttonsById[id];
 
   // 麦克风键：显示固定说明，无下拉。
-  if (id === "mic" || !b) {
+  if (id === "mic") {
     empty.hidden = true;
     body.hidden = false;
     $("#kd-name").textContent = "语音键";
     $("#kd-note").textContent = MIC_NOTE;
+    $("#kd-tag").hidden = true;
+    $("#kd-action").hidden = true;
+    return;
+  }
+  // Apple TV 款独有键：RC003 上无对应实体键，不可映射。
+  if (!b) {
+    empty.hidden = true;
+    body.hidden = false;
+    $("#kd-name").textContent = (EXTRA_KEYS[id] || id) + "键";
+    $("#kd-note").textContent = "此布局键在小米 RC003 上无对应实体键，暂未接入映射";
     $("#kd-tag").hidden = true;
     $("#kd-action").hidden = true;
     return;
@@ -187,7 +199,26 @@ function renderDetail(id) {
   }
 }
 
-// 绑定 SVG 热点点击 / 键盘可达。
+// 遥控器样式切换（两套 SVG 布局，热点共用同一按钮模型）。
+function applyRemoteStyle(style) {
+  $("#wrap-rc003").hidden = style === "atv";
+  $("#wrap-atv").hidden = style !== "atv";
+  document.querySelectorAll("#remote-style .seg-btn").forEach((b) => {
+    b.classList.toggle("active", b.dataset.style === style);
+  });
+  try { localStorage.setItem("remoteStyle", style); } catch {}
+}
+$("#remote-style").addEventListener("click", (e) => {
+  const btn = e.target.closest(".seg-btn");
+  if (btn) applyRemoteStyle(btn.dataset.style);
+});
+try {
+  applyRemoteStyle(localStorage.getItem("remoteStyle") || "rc003");
+} catch {
+  applyRemoteStyle("rc003");
+}
+
+// 绑定 SVG 热点点击 / 键盘可达（两套布局的热点都在 DOM 中，一次绑定全覆盖）。
 document.querySelectorAll(".remote .key").forEach((el) => {
   const id = el.dataset.button;
   el.addEventListener("click", () => selectButton(id));

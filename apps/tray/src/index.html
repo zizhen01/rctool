@@ -76,7 +76,12 @@
             <input type="checkbox" id="key-mapping" />
           </label>
         </div>
-        <div class="remote-wrap">
+        <div class="seg" id="remote-style" role="tablist" aria-label="遥控器样式">
+          <button class="seg-btn active" data-style="rc003">小米 RC003</button>
+          <button class="seg-btn" data-style="atv">Apple TV 款</button>
+        </div>
+
+        <div class="remote-wrap" id="wrap-rc003">
           <svg viewBox="0 0 200 620" class="remote" id="remote-svg" aria-label="RC003 遥控器">
             <defs>
               <linearGradient id="bodyGrad" x1="0" y1="0" x2="1" y2="0">
@@ -175,6 +180,98 @@
               <text x="100" y="461.2">N</text>
             </g>
             <text class="brand" x="100" y="557">xiaomi</text>
+          </svg>
+        </div>
+
+        <div class="remote-wrap" id="wrap-atv" hidden>
+          <svg viewBox="0 0 200 600" class="remote atv" aria-label="Apple TV 款遥控器">
+            <defs>
+              <radialGradient id="akGrad" cx="0.5" cy="0.35" r="0.8">
+                <stop offset="0" class="ak-a" />
+                <stop offset="1" class="ak-b" />
+              </radialGradient>
+              <radialGradient id="apGrad" cx="0.5" cy="0.38" r="0.8">
+                <stop offset="0" class="ap-a" />
+                <stop offset="1" class="ap-b" />
+              </radialGradient>
+              <radialGradient id="aokGrad" cx="0.5" cy="0.4" r="0.75">
+                <stop offset="0" class="aok-a" />
+                <stop offset="1" class="aok-b" />
+              </radialGradient>
+            </defs>
+
+            <!-- 银色机身（1:3.84，方角更小）-->
+            <rect class="body" x="25" y="12" width="150" height="576" rx="20" />
+            <rect class="body-glint" x="26.5" y="13.5" width="147" height="573" rx="18.8" />
+            <rect class="mic-hole" x="96.8" y="38.4" width="6.4" height="2.4" rx="1.2" />
+
+            <!-- 顶部：MENU / 电源（小黑圆键，白字白图标）-->
+            <g class="key" data-button="menu" tabindex="0" role="button" aria-label="菜单">
+              <circle class="cap" cx="55.3" cy="41.6" r="12.7" />
+              <text class="menu-label" x="55.3" y="43.5">MENU</text>
+            </g>
+            <g class="key" data-button="power" tabindex="0" role="button" aria-label="电源">
+              <circle class="cap" cx="144.7" cy="41.6" r="12.7" />
+              <path class="ico-w thin" d="M141.2,39.9 A5,5 0 1 0 148.2,39.9" />
+              <line class="ico-w thin" x1="144.7" y1="35.2" x2="144.7" y2="41.2" />
+            </g>
+
+            <!-- Clickpad：近黑大圆盘 + 内圈缝线 + 四个白点 + 中心确认 -->
+            <circle class="dpad-base" cx="100" cy="119.1" r="59" />
+            <g class="key" data-button="up" tabindex="0" role="button" aria-label="上">
+              <path class="sector" d="M60.4,79.5 A56,56 0 0 1 139.6,79.5 L125.1,94 A35.5,35.5 0 0 0 74.9,94 Z" />
+            </g>
+            <g class="key" data-button="right" tabindex="0" role="button" aria-label="右">
+              <path class="sector" d="M139.6,79.5 A56,56 0 0 1 139.6,158.7 L125.1,144.2 A35.5,35.5 0 0 0 125.1,94 Z" />
+            </g>
+            <g class="key" data-button="down" tabindex="0" role="button" aria-label="下">
+              <path class="sector" d="M139.6,158.7 A56,56 0 0 1 60.4,158.7 L74.9,144.2 A35.5,35.5 0 0 0 125.1,144.2 Z" />
+            </g>
+            <g class="key" data-button="left" tabindex="0" role="button" aria-label="左">
+              <path class="sector" d="M60.4,158.7 A56,56 0 0 1 60.4,79.5 L74.9,94 A35.5,35.5 0 0 0 74.9,144.2 Z" />
+            </g>
+            <circle class="pad-dot" cx="100" cy="66.1" r="1.8" />
+            <circle class="pad-dot" cx="100" cy="172.1" r="1.8" />
+            <circle class="pad-dot" cx="47" cy="119.1" r="1.8" />
+            <circle class="pad-dot" cx="153" cy="119.1" r="1.8" />
+            <g class="key" data-button="ok" tabindex="0" role="button" aria-label="确定">
+              <circle class="okcap" cx="100" cy="119.1" r="35" />
+            </g>
+            <circle class="pad-seam" cx="100" cy="119.1" r="35.5" />
+
+            <!-- 第一排：返回 / TV -->
+            <g class="key" data-button="back" tabindex="0" role="button" aria-label="返回">
+              <circle class="cap" cx="65.8" cy="215.9" r="24" />
+              <polyline class="ico-w" points="69.3,207.7 61.7,215.9 69.3,224.1" />
+            </g>
+            <g class="key" data-button="tv" tabindex="0" role="button" aria-label="TV">
+              <circle class="cap" cx="134.5" cy="215.9" r="24" />
+              <rect class="ico-w" x="125.5" y="208.9" width="18" height="12.5" rx="2.2" />
+              <line class="ico-w" x1="130" y1="224.6" x2="139" y2="224.6" />
+            </g>
+
+            <!-- 第二/三排：播放暂停、静音（RC003 无对应键），右侧音量胶囊 -->
+            <g class="key" data-button="play_pause" tabindex="0" role="button" aria-label="播放暂停">
+              <circle class="cap" cx="65.8" cy="270" r="24" />
+              <polygon class="ico-w" points="59.5,264 59.5,276 68.5,270" />
+              <line class="ico-w" x1="72.8" y1="264.5" x2="72.8" y2="275.5" />
+              <line class="ico-w" x1="76.6" y1="264.5" x2="76.6" y2="275.5" />
+            </g>
+            <g class="key" data-button="mute" tabindex="0" role="button" aria-label="静音">
+              <circle class="cap" cx="65.8" cy="334.6" r="24" />
+              <path class="ico-w" d="M57.5,331 L61.5,331 L66.5,326 L66.5,343.2 L61.5,338.2 L57.5,338.2 Z" />
+              <line class="ico-w" x1="57" y1="343.5" x2="74" y2="326.5" />
+            </g>
+            <g class="key" data-button="volume_up" tabindex="0" role="button" aria-label="音量加">
+              <path class="cap" d="M110.5,302.3 L110.5,270 A24,24 0 0 1 158.5,270 L158.5,302.3 Z" />
+              <line class="ico-w" x1="126.5" y1="270" x2="142.5" y2="270" />
+              <line class="ico-w" x1="134.5" y1="262" x2="134.5" y2="278" />
+            </g>
+            <g class="key" data-button="volume_down" tabindex="0" role="button" aria-label="音量减">
+              <path class="cap" d="M110.5,302.3 L110.5,334.6 A24,24 0 0 0 158.5,334.6 L158.5,302.3 Z" />
+              <line class="ico-w" x1="126.5" y1="334.6" x2="142.5" y2="334.6" />
+            </g>
+            <line class="vol-seam" x1="115" y1="302.3" x2="154" y2="302.3" />
           </svg>
         </div>
 
