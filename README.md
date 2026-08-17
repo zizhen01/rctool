@@ -134,6 +134,14 @@ Service  AB5E0001-5A21-4F05-BC7D-AF01F617B664
 → 0x0A AUDIO_SYNC（丢包重同步）… → 松开 → 0x00 AUDIO_STOP
 ```
 
+## 回环驱动分发策略
+
+| 平台 | 现状 | 计划 |
+| --- | --- | --- |
+| macOS | 引导用户安装 BlackHole | 可以合法内嵌：BlackHole 是 GPL-3.0，与本项目同证；后续把安装器打进 dmg / 应用内一键安装，长期可 fork 为自有 AudioServerPlugIn 随 app 签名分发 |
+| Windows | 引导用户安装 VB-Cable | **不可捆绑**：VB-Cable 闭源 donationware，许可证禁止未授权再分发；只能应用内引导到官网下载（自研驱动需 EV 证书 + 微软签名，暂不考虑） |
+| Linux | 无需驱动 | 计划桥接启动时自动 `pactl load-module module-null-sink` 创建虚拟设备，做到零配置 |
+
 ## 许可证
 
 GPL-3.0-only。协议细节与解码逻辑源自
