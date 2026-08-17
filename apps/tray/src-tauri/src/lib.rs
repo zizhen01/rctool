@@ -257,6 +257,48 @@ fn request_permissions() {
     // Windows/Linux：桥接与听写触发不需要额外系统权限。
 }
 
+/// 回环设备缺失时的最轻引导：mac/win 打开官方下载页（不打包、不再分发，
+/// 规避 VB-Cable 的许可限制）；Linux 直接一键创建 null-sink，无需任何下载。
+#[tauri::command]
+fn setup_loopback() -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        open_url("https://existential.audio/blackhole/")?;
+        Ok("已打开 BlackHole 下载页，安装完成后点「重新检测」".into())
+    }
+    #[cfg(target_os = "windows")]
+    {
+        open_url("https://vb-audio.com/Cable/")?;
+        Ok("已打开 VB-Cable 下载页，安装完成后点「重新检测」".into())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let status = std::process::Command::new("pactl")
+            .args([
+                "load-module",
+                "module-null-sink",
+                "sink_name=RCTool",
+                "sink_properties=device.description=RCTool",
+            ])
+            .status()
+            .map_err(|e| format!("无法执行 pactl: {e}"))?;
+        if status.success() {
+            Ok("已创建 RCTool 虚拟设备，点「重新检测」后选择它".into())
+        } else {
+            Err("pactl 执行失败（需要 PulseAudio / PipeWire）".into())
+        }
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn open_url(url: &str) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open").arg(url).spawn();
+    #[cfg(target_os = "windows")]
+    let result = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
+    result.map(|_| ()).map_err(|e| format!("无法打开浏览器: {e}"))
+}
+
 #[tauri::command]
 async fn start_bridge(state: State<'_, AppState>) -> Result<(), String> {
     start_bridge_inner(&state).map_err(|e| format!("{e:#}"))
@@ -383,6 +425,7 @@ pub fn run() {
             set_key_mapping,
             get_permissions,
             request_permissions,
+            setup_loopback,
             start_bridge,
             stop_bridge,
         ])

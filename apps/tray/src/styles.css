@@ -178,6 +178,11 @@ button.ghost.sm { padding: 5px 12px; font-size: 12px; font-weight: 500; }
   font-size: 11.5px;
   line-height: 1.5;
 }
+.warn-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
 
 /* 按键列表 */
 .button-item {

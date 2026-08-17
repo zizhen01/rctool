@@ -136,11 +136,13 @@ Service  AB5E0001-5A21-4F05-BC7D-AF01F617B664
 
 ## 回环驱动分发策略
 
-| 平台 | 现状 | 计划 |
+**不打包驱动，应用内提供最轻引导**（托盘应用连接页，未检测到回环设备时出现）：
+
+| 平台 | 应用内行为 | 说明 |
 | --- | --- | --- |
-| macOS | 引导用户安装 BlackHole | 可以合法内嵌：BlackHole 是 GPL-3.0，与本项目同证；后续把安装器打进 dmg / 应用内一键安装，长期可 fork 为自有 AudioServerPlugIn 随 app 签名分发 |
-| Windows | 引导用户安装 VB-Cable | **不可捆绑**：VB-Cable 闭源 donationware，许可证禁止未授权再分发；只能应用内引导到官网下载（自研驱动需 EV 证书 + 微软签名，暂不考虑） |
-| Linux | 无需驱动 | 计划桥接启动时自动 `pactl load-module module-null-sink` 创建虚拟设备，做到零配置 |
+| macOS | 「下载 BlackHole」打开官网 + 「重新检测」 | BlackHole 为 GPL-3.0 与本项目同证，将来如需可合法内嵌安装器；当前刻意不打包保持轻量 |
+| Windows | 「下载 VB-Cable」打开官网 + 「重新检测」 | VB-Cable 闭源 donationware **禁止未授权再分发**，本就不可捆绑 |
+| Linux | 「一键创建虚拟设备」直接 `pactl load-module module-null-sink` | 无需下载任何东西 |
 
 ## 许可证
 

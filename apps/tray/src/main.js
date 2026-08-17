@@ -30,9 +30,9 @@ let running = false;
 let platform = "macos";
 
 const LOOPBACK_HINTS = {
-  macos: "未发现回环设备。请先安装 BlackHole 2ch（existential.audio/blackhole），然后重开本页。",
-  windows: "未发现回环设备。请先安装 VB-Cable（vb-audio.com/Cable），然后重开本页。",
-  linux: "未发现回环设备。执行 pactl load-module module-null-sink sink_name=rctool 创建，然后重开本页。",
+  macos: { text: "未发现回环设备。语音需要写入 BlackHole 才能成为虚拟麦克风。", btn: "下载 BlackHole" },
+  windows: { text: "未发现回环设备。语音需要写入 VB-Cable 才能成为虚拟麦克风。", btn: "下载 VB-Cable" },
+  linux: { text: "未发现回环设备。可直接创建一个 PipeWire/Pulse 虚拟设备。", btn: "一键创建虚拟设备" },
 };
 
 async function refreshOutputs() {
@@ -55,10 +55,22 @@ async function refreshOutputs() {
     if (o.name === cfg.output_device) opt.selected = true;
     sel.appendChild(opt);
   }
-  const warn = $("#no-loopback");
-  warn.textContent = LOOPBACK_HINTS[platform] || LOOPBACK_HINTS.macos;
-  warn.hidden = hasLoopback;
+  const hint = LOOPBACK_HINTS[platform] || LOOPBACK_HINTS.macos;
+  $("#no-loopback-text").textContent = hint.text;
+  $("#setup-loopback").textContent = hint.btn;
+  $("#no-loopback").hidden = hasLoopback;
 }
+
+$("#setup-loopback").addEventListener("click", async () => {
+  try {
+    $("#no-loopback-text").textContent = await invoke("setup_loopback");
+    if (platform === "linux") await refreshOutputs();
+  } catch (err) {
+    $("#no-loopback-text").textContent = String(err);
+  }
+});
+
+$("#recheck-outputs").addEventListener("click", () => refreshOutputs());
 
 /// 按平台裁剪界面：F5→Fn 与按键映射仅 macOS；Win+H 仅 Windows。
 function applyPlatform() {
