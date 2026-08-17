@@ -27,6 +27,13 @@ listen("bridge-status", (e) => applyStatus(e.payload));
 
 // ---- 连接页 ----
 let running = false;
+let platform = "macos";
+
+const LOOPBACK_HINTS = {
+  macos: "未发现回环设备。请先安装 BlackHole 2ch（existential.audio/blackhole），然后重开本页。",
+  windows: "未发现回环设备。请先安装 VB-Cable（vb-audio.com/Cable），然后重开本页。",
+  linux: "未发现回环设备。执行 pactl load-module module-null-sink sink_name=rctool 创建，然后重开本页。",
+};
 
 async function refreshOutputs() {
   const outputs = await invoke("list_outputs");
@@ -48,7 +55,20 @@ async function refreshOutputs() {
     if (o.name === cfg.output_device) opt.selected = true;
     sel.appendChild(opt);
   }
-  $("#no-loopback").hidden = hasLoopback;
+  const warn = $("#no-loopback");
+  warn.textContent = LOOPBACK_HINTS[platform] || LOOPBACK_HINTS.macos;
+  warn.hidden = hasLoopback;
+}
+
+/// 按平台裁剪界面：F5→Fn 与按键映射仅 macOS；Win+H 仅 Windows。
+function applyPlatform() {
+  const isMac = platform === "macos";
+  $("#card-fn-remap").hidden = !isMac;
+  $("#card-win-hotkey").hidden = platform !== "windows";
+  const keysTab = document.querySelector('.tab[data-tab="keys"]');
+  const permsTab = document.querySelector('.tab[data-tab="permissions"]');
+  keysTab.style.display = isMac ? "" : "none";
+  permsTab.style.display = isMac ? "" : "none";
 }
 
 $("#output-select").addEventListener("change", (e) => {
@@ -64,6 +84,10 @@ $("#gain").addEventListener("change", (e) => {
 
 $("#fn-remap").addEventListener("change", (e) => {
   invoke("set_fn_remap", { enabled: e.target.checked });
+});
+
+$("#win-hotkey").addEventListener("change", (e) => {
+  invoke("set_win_hotkey", { enabled: e.target.checked });
 });
 
 $("#toggle-bridge").addEventListener("click", async () => {
@@ -164,9 +188,12 @@ $("#req-ax").addEventListener("click", async () => {
 // ---- 初始化 ----
 async function init() {
   const cfg = await invoke("get_config");
+  platform = cfg.platform || "macos";
+  applyPlatform();
   $("#gain").value = cfg.gain_db;
   $("#gain-value").textContent = Number(cfg.gain_db).toFixed(1);
   $("#fn-remap").checked = cfg.fn_remap;
+  $("#win-hotkey").checked = cfg.win_hotkey;
   await refreshOutputs();
   await syncRunning();
   applyStatus(

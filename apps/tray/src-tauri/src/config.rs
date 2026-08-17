@@ -14,7 +14,9 @@ pub struct Config {
     pub gain_db: f64,
     /// macOS：F5→Fn 听写触发重映射。
     pub fn_remap: bool,
-    /// 是否启用按键映射（需要输入监控/辅助功能权限）。
+    /// Windows：语音流开始/结束时合成 Win+H 触发系统语音输入。
+    pub win_hotkey: bool,
+    /// 是否启用按键映射（macOS；需要输入监控/辅助功能权限）。
     pub key_mapping: bool,
     /// 按键覆盖：button_id → action_id。缺省用出厂默认。
     pub bindings: HashMap<String, String>,
@@ -26,6 +28,7 @@ impl Default for Config {
             output_device: None,
             gain_db: 0.0,
             fn_remap: true,
+            win_hotkey: true,
             key_mapping: false,
             bindings: HashMap::new(),
         }

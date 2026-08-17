@@ -18,6 +18,8 @@ pub const SRC_F5: u64 = 0x0000_0007_0000_003E;
 pub const DST_FN_GLOBE: u64 = 0x0000_00FF_0000_0003;
 
 /// 要写入的映射表：保留既有的非 F5 项，追加 F5→Fn。
+/// （仅 macOS 实现使用；非 macOS 平台保留纯逻辑与其单测。）
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn desired_mappings(current: &[(u64, u64)]) -> Vec<(u64, u64)> {
     let mut out: Vec<(u64, u64)> =
         current.iter().copied().filter(|(src, _)| *src != SRC_F5).collect();
@@ -27,6 +29,7 @@ fn desired_mappings(current: &[(u64, u64)]) -> Vec<(u64, u64)> {
 
 /// 保存用的"原值"：上次进程崩溃遗留的我们自己的 F5→Fn 不算原值，
 /// 否则退出恢复时会把陈旧映射原样写回去。
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 fn original_for_save(current: &[(u64, u64)]) -> Vec<(u64, u64)> {
     current.iter().copied().filter(|m| *m != (SRC_F5, DST_FN_GLOBE)).collect()
 }

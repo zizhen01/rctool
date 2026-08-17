@@ -4,6 +4,7 @@
 //! 推给设置界面与托盘。核心逻辑全部来自 `rctool-core`，这里只做编排与 UI。
 
 mod config;
+mod dictation;
 
 use config::Config;
 use rctool_core::bridge::{self, BridgeOptions, BridgeStatus, StatusCallback};
@@ -50,8 +51,11 @@ struct ConfigDto {
     output_device: Option<String>,
     gain_db: f64,
     fn_remap: bool,
+    win_hotkey: bool,
     key_mapping: bool,
     running: bool,
+    /// "macos" / "windows" / "linux"，前端按平台裁剪界面。
+    platform: &'static str,
 }
 
 #[derive(Serialize)]
@@ -122,8 +126,10 @@ fn get_config(state: State<AppState>) -> ConfigDto {
         output_device: c.output_device.clone(),
         gain_db: c.gain_db,
         fn_remap: c.fn_remap,
+        win_hotkey: c.win_hotkey,
         key_mapping: c.key_mapping,
         running: state.bridge.lock().unwrap().is_some(),
+        platform: std::env::consts::OS,
     }
 }
 
@@ -206,6 +212,12 @@ fn set_fn_remap(state: State<AppState>, enabled: bool) {
 }
 
 #[tauri::command]
+fn set_win_hotkey(state: State<AppState>, enabled: bool) {
+    state.config.lock().unwrap().win_hotkey = enabled;
+    state.save_config();
+}
+
+#[tauri::command]
 fn set_key_mapping(state: State<AppState>, enabled: bool) {
     state.config.lock().unwrap().key_mapping = enabled;
     state.save_config();
@@ -239,6 +251,7 @@ fn request_permissions() {
             .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
             .spawn();
     }
+    // Windows/Linux：桥接与听写触发不需要额外系统权限。
 }
 
 #[tauri::command]
@@ -278,6 +291,15 @@ fn start_bridge_inner(state: &AppState) -> anyhow::Result<()> {
     let opts = BridgeOptions { gain_db: gain, fn_remap, ..Default::default() };
     let app = state.app.clone();
     let status_cb: StatusCallback = Arc::new(move |s: BridgeStatus| {
+        // Windows：语音流边沿触发系统语音输入（Win+H 切换）。
+        if let BridgeStatus::Streaming(active) = s {
+            if cfg!(windows) {
+                let enabled = app.state::<AppState>().config.lock().unwrap().win_hotkey;
+                if enabled {
+                    dictation::on_stream(active);
+                }
+            }
+        }
         let dto = StatusDto::from(s);
         update_tray_tooltip(&app, &dto.detail);
         emit_status(&app, dto);
@@ -342,7 +364,6 @@ fn show_settings(app: &AppHandle) {
 
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
             get_config,
             list_outputs,
@@ -353,6 +374,7 @@ pub fn run() {
             set_output,
             set_gain,
             set_fn_remap,
+            set_win_hotkey,
             set_key_mapping,
             get_permissions,
             request_permissions,

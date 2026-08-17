@@ -29,9 +29,7 @@
             </div>
           </div>
           <select id="output-select"></select>
-          <div class="warn" id="no-loopback" hidden>
-            未发现回环设备。请先安装 BlackHole 2ch（macOS），再点右上角刷新。
-          </div>
+          <div class="warn" id="no-loopback" hidden></div>
         </div>
 
         <div class="card">
@@ -44,13 +42,23 @@
           <input type="range" id="gain" min="-24" max="24" step="0.5" value="0" />
         </div>
 
-        <div class="card">
+        <div class="card" id="card-fn-remap">
           <label class="switch-row">
             <div class="label">
               <div class="title">按住麦克风键即听写</div>
               <div class="hint">把遥控器麦克风键映射为 🌐（需在系统听写里选“按住 🌐”）</div>
             </div>
             <input type="checkbox" id="fn-remap" />
+          </label>
+        </div>
+
+        <div class="card" id="card-win-hotkey" hidden>
+          <label class="switch-row">
+            <div class="label">
+              <div class="title">语音时自动打开 Windows 语音输入</div>
+              <div class="hint">语音流开始/结束时合成 Win+H 切换系统语音输入面板</div>
+            </div>
+            <input type="checkbox" id="win-hotkey" />
           </label>
         </div>
 
