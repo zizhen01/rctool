@@ -79,6 +79,8 @@ function applyPlatform() {
   document.body.classList.toggle("mac", isMac);
   $("#card-fn-remap").hidden = !isMac;
   $("#card-win-hotkey").hidden = platform !== "windows";
+  // Dock 是 macOS 概念，其他平台不显示这个开关。
+  $("#card-hide-dock").hidden = !isMac;
   // 按键映射与按应用覆盖都依赖 macOS 的 HID/NSWorkspace 通路。
   for (const name of ["keys", "apps", "permissions"]) {
     document.querySelector(`.tab[data-tab="${name}"]`).style.display = isMac ? "" : "none";
@@ -102,6 +104,10 @@ $("#fn-remap").addEventListener("change", (e) => {
 
 $("#win-hotkey").addEventListener("change", (e) => {
   invoke("set_win_hotkey", { enabled: e.target.checked });
+});
+
+$("#hide-dock").addEventListener("change", (e) => {
+  invoke("set_hide_dock_on_close", { enabled: e.target.checked });
 });
 
 $("#toggle-bridge").addEventListener("click", async () => {
@@ -601,6 +607,7 @@ async function init() {
   $("#gain-value").textContent = Number(cfg.gain_db).toFixed(1);
   $("#fn-remap").checked = cfg.fn_remap;
   $("#win-hotkey").checked = cfg.win_hotkey;
+  $("#hide-dock").checked = cfg.hide_dock_on_close;
   await refreshOutputs();
   await syncRunning();
   applyStatus(

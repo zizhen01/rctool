@@ -71,6 +71,7 @@ struct ConfigDto {
     fn_remap: bool,
     win_hotkey: bool,
     key_mapping: bool,
+    hide_dock_on_close: bool,
     running: bool,
     /// "macos" / "windows" / "linux"，前端按平台裁剪界面。
     platform: &'static str,
@@ -178,6 +179,7 @@ fn get_config(state: State<AppState>) -> ConfigDto {
         fn_remap: c.fn_remap,
         win_hotkey: c.win_hotkey,
         key_mapping: c.key_mapping,
+        hide_dock_on_close: c.hide_dock_on_close,
         running: state.bridge.lock().unwrap().is_some(),
         platform: std::env::consts::OS,
     }
@@ -461,6 +463,16 @@ fn set_key_mapping(state: State<AppState>, enabled: bool) {
     state.config.lock().unwrap().key_mapping = enabled;
     state.save_config();
     refresh_hid(&state);
+}
+
+#[tauri::command]
+fn set_hide_dock_on_close(state: State<AppState>, enabled: bool) {
+    state.config.lock().unwrap().hide_dock_on_close = enabled;
+    state.save_config();
+    // 关掉的瞬间要把图标找回来——否则得先开一次窗口才恢复。
+    if !enabled {
+        set_dock_visible(&state.app, true);
+    }
 }
 
 #[tauri::command]
@@ -782,8 +794,26 @@ fn update_tray_tooltip(app: &AppHandle, text: &str) {
 // 应用装配
 // ---------------------------------------------------------------------------
 
+/// macOS：切换 Dock 图标可见性。Accessory 策略下应用只剩菜单栏图标，
+/// 但托盘、后台桥接、按键映射都照常工作。其他平台是空操作。
+fn set_dock_visible(app: &AppHandle, visible: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::ActivationPolicy;
+        let policy =
+            if visible { ActivationPolicy::Regular } else { ActivationPolicy::Accessory };
+        if let Err(e) = app.set_activation_policy(policy) {
+            log::warn!("切换 Dock 图标失败: {e}");
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, visible);
+}
+
 /// 显示并聚焦主窗口（托盘菜单、Dock 点击、启动时共用）。
 fn show_main_window(app: &AppHandle) {
+    // 先把图标放回 Dock：Accessory 应用的窗口拿不到正常的前台焦点。
+    set_dock_visible(app, true);
     if let Some(win) = app.get_webview_window("main") {
         let _ = win.show();
         let _ = win.unminimize();
@@ -813,6 +843,7 @@ pub fn run() {
             set_fn_remap,
             set_win_hotkey,
             set_key_mapping,
+            set_hide_dock_on_close,
             get_permissions,
             request_permissions,
             setup_loopback,
@@ -908,11 +939,17 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // 关闭主窗口只隐藏，应用继续驻留托盘 / Dock。
+            // 关闭主窗口只隐藏，应用继续驻留托盘（Dock 图标按设置去留）。
             if let WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
                     api.prevent_close();
                     let _ = window.hide();
+                    let app = window.app_handle();
+                    let hide_dock =
+                        app.state::<AppState>().config.lock().unwrap().hide_dock_on_close;
+                    if hide_dock {
+                        set_dock_visible(app, false);
+                    }
                 }
             }
         })

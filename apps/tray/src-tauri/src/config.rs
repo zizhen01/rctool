@@ -22,6 +22,9 @@ pub struct Config {
     pub bindings: HashMap<String, String>,
     /// 按应用的覆盖层（macOS）。数组而非映射：顺序即界面列表顺序。
     pub app_profiles: Vec<AppProfile>,
+    /// macOS：关闭主窗口时把图标从 Dock 移出（切到 Accessory 激活策略），
+    /// 只留菜单栏图标。再次显示窗口时切回 Regular。
+    pub hide_dock_on_close: bool,
 }
 
 /// 一个应用的按键覆盖层。只存与全局不同的键——见
@@ -57,6 +60,7 @@ impl Default for Config {
             key_mapping: false,
             bindings: HashMap::new(),
             app_profiles: Vec::new(),
+            hide_dock_on_close: true,
         }
     }
 }
