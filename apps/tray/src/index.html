@@ -15,6 +15,7 @@
     <nav class="tabs">
       <button class="tab active" data-tab="connection">连接</button>
       <button class="tab" data-tab="keys">按键</button>
+      <button class="tab" data-tab="apps">应用</button>
       <button class="tab" data-tab="permissions">权限</button>
     </nav>
 
@@ -293,6 +294,36 @@
             <div class="hint" id="key-note">点击遥控器按键或表格行查看说明</div>
             <button class="ghost" id="reset-bindings">恢复默认映射</button>
           </div>
+        </div>
+      </section>
+
+
+      <!-- 应用（按前台应用覆盖按键，只展示与全局的差异）-->
+      <section class="page" id="page-apps">
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title">按应用覆盖</div>
+              <div class="hint">前台应用切换时自动套用。这里只列出与「按键」页全局映射<b>不同</b>的项，其余键沿用全局。</div>
+            </div>
+          </div>
+          <div class="app-add">
+            <select id="app-picker"></select>
+            <input type="text" id="app-bundle" placeholder="或手动填 bundle id" spellcheck="false" />
+            <button class="ghost sm" id="add-app">添加</button>
+          </div>
+          <div class="warn" id="apps-need-mapping" hidden>「按键」页的按键映射未启用，这里的覆盖暂时不会生效。</div>
+          <div class="warn subtle" id="front-app-hint" hidden>
+            <span id="front-app-text"></span>
+            <div class="warn-actions">
+              <button class="ghost sm" id="add-front-app">添加它</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="apps-layout">
+          <div class="app-list" id="app-list"></div>
+          <div class="app-detail" id="app-detail"></div>
         </div>
       </section>
 

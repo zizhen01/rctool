@@ -20,11 +20,27 @@ use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 use tokio_util::sync::CancellationToken;
 
 #[cfg(target_os = "macos")]
+use rctool_core::frontapp::{self, FrontApp};
+#[cfg(target_os = "macos")]
 use rctool_core::hidmap::{HidMapper, Permissions};
 
 struct BridgeHandle {
     token: CancellationToken,
     join: tauri::async_runtime::JoinHandle<()>,
+}
+
+/// 前台应用状态（macOS）。
+///
+/// 锁纪律：本锁与 `config` 锁**不同时持有**——取需要的值就立刻释放，避免
+/// 前台切换回调（主线程）与设置界面命令（IPC 线程）互相等待。
+#[cfg(target_os = "macos")]
+#[derive(Default)]
+struct FrontState {
+    /// 真实前台应用，含 RCTool 自己。映射解析用这个。
+    active: Option<FrontApp>,
+    /// 最近一个不是 RCTool 自己的前台应用。设置界面正被看着的时候，前台就是
+    /// RCTool，所以"添加当前应用"要用的是这个。
+    recent: Option<FrontApp>,
 }
 
 struct AppState {
@@ -33,6 +49,8 @@ struct AppState {
     bridge: Mutex<Option<BridgeHandle>>,
     #[cfg(target_os = "macos")]
     hid: Mutex<Option<HidMapper>>,
+    #[cfg(target_os = "macos")]
+    front: Mutex<FrontState>,
     app: AppHandle,
 }
 
@@ -78,6 +96,36 @@ struct ButtonDto {
     action_id: String,
     /// 该键是否真正接管了行为（拦截/注入），直通键为 false。
     managed: bool,
+}
+
+/// 一个可被指定覆盖层的应用（运行中的应用 / 最近前台应用）。
+#[derive(Clone, Serialize)]
+struct AppDto {
+    bundle_id: String,
+    name: String,
+    /// 是否已有覆盖层。
+    has_profile: bool,
+}
+
+/// 某应用相对全局映射的**一条**差异。界面只渲染差异，不重复整张映射表。
+#[derive(Serialize)]
+struct DiffDto {
+    button_id: String,
+    button_label: String,
+    base_action_id: String,
+    base_action_label: String,
+    action_id: String,
+    action_label: String,
+}
+
+#[derive(Serialize)]
+struct AppProfileDto {
+    bundle_id: String,
+    name: String,
+    enabled: bool,
+    /// 此刻是否正是前台应用（界面上标"生效中"）。
+    active: bool,
+    diffs: Vec<DiffDto>,
 }
 
 #[derive(Serialize)]
@@ -194,6 +242,194 @@ fn reset_bindings(state: State<AppState>) {
     state.config.lock().unwrap().bindings.clear();
     state.save_config();
     refresh_hid(&state);
+}
+
+// --- 按应用映射 ---
+//
+// 模型见 rctool_core::keymap::AppProfile：覆盖层只存"与全局不同的键"。因此这
+// 组命令给前端的也只有差异，界面不需要复制一遍主界面的整张映射表。
+
+/// 当前正在运行、可指定覆盖层的应用（不含 RCTool 自己）。
+#[tauri::command]
+fn list_running_apps(state: State<AppState>) -> Vec<AppDto> {
+    #[cfg(target_os = "macos")]
+    {
+        let known = profile_bundle_ids(&state);
+        let own = state.app.config().identifier.clone();
+        frontapp::running_apps()
+            .into_iter()
+            .filter(|a| a.bundle_id != own)
+            .map(|a| AppDto {
+                has_profile: known.contains(&a.bundle_id),
+                bundle_id: a.bundle_id,
+                name: a.name,
+            })
+            .collect()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = state;
+        Vec::new()
+    }
+}
+
+/// 最近一个不是 RCTool 的前台应用——"添加当前应用"用它。
+#[tauri::command]
+fn get_front_app(state: State<AppState>) -> Option<AppDto> {
+    #[cfg(target_os = "macos")]
+    {
+        let recent = state.front.lock().unwrap().recent.clone()?;
+        Some(app_dto(&state, recent))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = state;
+        None
+    }
+}
+
+#[tauri::command]
+fn get_app_profiles(state: State<AppState>) -> Vec<AppProfileDto> {
+    let active = active_bundle_id(&state);
+    let c = state.config.lock().unwrap();
+    let maps = c.app_key_maps();
+    c.app_profiles
+        .iter()
+        .map(|p| AppProfileDto {
+            active: active.as_deref() == Some(p.bundle_id.as_str()),
+            bundle_id: p.bundle_id.clone(),
+            name: p.name.clone(),
+            enabled: p.enabled,
+            diffs: maps
+                .diff(&p.bundle_id)
+                .into_iter()
+                .map(|d| DiffDto {
+                    button_id: d.button.id().into(),
+                    button_label: d.button.label().into(),
+                    base_action_id: d.base.id().into(),
+                    base_action_label: d.base.label().into(),
+                    action_id: d.app.id().into(),
+                    action_label: d.app.label().into(),
+                })
+                .collect(),
+        })
+        .collect()
+}
+
+#[tauri::command]
+fn add_app_profile(state: State<AppState>, bundle_id: String, name: String) -> Result<(), String> {
+    if bundle_id.trim().is_empty() {
+        return Err("bundle id 不能为空".into());
+    }
+    state.config.lock().unwrap().app_profile_mut(&bundle_id, &name);
+    state.save_config();
+    Ok(())
+}
+
+#[tauri::command]
+fn remove_app_profile(state: State<AppState>, bundle_id: String) {
+    state.config.lock().unwrap().remove_app_profile(&bundle_id);
+    state.save_config();
+    refresh_hid(&state);
+}
+
+#[tauri::command]
+fn set_app_profile_enabled(state: State<AppState>, bundle_id: String, enabled: bool) {
+    {
+        let mut c = state.config.lock().unwrap();
+        if let Some(p) = c.app_profiles.iter_mut().find(|p| p.bundle_id == bundle_id) {
+            p.enabled = enabled;
+        }
+    }
+    state.save_config();
+    refresh_hid(&state);
+}
+
+/// 设置（或清除）某应用下某键的覆盖。`action_id` 为 None 即清除，回落全局。
+///
+/// 选成与全局**相同**的动作也按清除处理：留一条对运行时毫无影响的覆盖，只会
+/// 让"差异列表"里出现一行看不出差在哪的记录。
+#[tauri::command]
+fn set_app_binding(
+    state: State<AppState>,
+    bundle_id: String,
+    name: Option<String>,
+    button_id: String,
+    action_id: Option<String>,
+) -> Result<(), String> {
+    let button = RemoteButton::from_id(&button_id).ok_or_else(|| "未知按键".to_string())?;
+    let action = match action_id.as_deref() {
+        None => None,
+        Some(id) => Some(Action::from_id(id).ok_or_else(|| "未知动作".to_string())?),
+    };
+    {
+        let mut c = state.config.lock().unwrap();
+        let base = c.key_map().action(button);
+        let display = name.unwrap_or_else(|| bundle_id.clone());
+        let profile = c.app_profile_mut(&bundle_id, &display);
+        match action {
+            Some(action) if action != base => {
+                profile.bindings.insert(button.id().into(), action.id().into());
+            }
+            _ => {
+                profile.bindings.remove(button.id());
+            }
+        }
+    }
+    state.save_config();
+    refresh_hid(&state);
+    Ok(())
+}
+
+/// 清空某应用的全部覆盖（保留空的覆盖层本身）。
+#[tauri::command]
+fn clear_app_bindings(state: State<AppState>, bundle_id: String) {
+    {
+        let mut c = state.config.lock().unwrap();
+        if let Some(p) = c.app_profiles.iter_mut().find(|p| p.bundle_id == bundle_id) {
+            p.bindings.clear();
+        }
+    }
+    state.save_config();
+    refresh_hid(&state);
+}
+
+/// 当前前台应用的 bundle id（映射解析用）。非 macOS 恒为 None。
+///
+/// 缓存为空时现问一次：应用刚启动、NSApplication 还没跑起来的那一小段里
+/// `frontmostApplication` 可能是 nil，此时监听拿不到首个值，别让它一直空着。
+fn active_bundle_id(state: &AppState) -> Option<String> {
+    #[cfg(target_os = "macos")]
+    {
+        let cached = state.front.lock().unwrap().active.as_ref().map(|a| a.bundle_id.clone());
+        cached.or_else(|| frontapp::frontmost().map(|a| a.bundle_id))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = state;
+        None
+    }
+}
+
+fn profile_bundle_ids(state: &AppState) -> Vec<String> {
+    state
+        .config
+        .lock()
+        .unwrap()
+        .app_profiles
+        .iter()
+        .map(|p| p.bundle_id.clone())
+        .collect()
+}
+
+#[cfg(target_os = "macos")]
+fn app_dto(state: &AppState, app: FrontApp) -> AppDto {
+    let known = profile_bundle_ids(state);
+    AppDto {
+        has_profile: known.contains(&app.bundle_id),
+        bundle_id: app.bundle_id,
+        name: app.name,
+    }
 }
 
 #[tauri::command]
@@ -472,26 +708,64 @@ fn start_bridge_inner(state: &AppState) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// 依据当前配置与平台，启动 / 更新 / 停止按键映射。
+/// 依据当前配置、前台应用与平台，启动 / 更新 / 停止按键映射。
+///
+/// 前台应用只影响"喂给 HID 层的是哪张表"——HID 层对应用无感知，切换应用就是
+/// 一次热更新，和在界面上改键走的是同一条路径。
 fn refresh_hid(state: &AppState) {
     #[cfg(target_os = "macos")]
     {
-        let (enabled, map) = {
-            let c = state.config.lock().unwrap();
-            (c.key_mapping, c.key_map())
-        };
+        let enabled = state.config.lock().unwrap().key_mapping;
+        if !enabled {
+            *state.hid.lock().unwrap() = None; // Drop 停止读取线程并恢复
+            return;
+        }
+        let active = active_bundle_id(state);
+        let map = state.config.lock().unwrap().app_key_maps().resolve(active.as_deref());
         let mut slot = state.hid.lock().unwrap();
-        if enabled {
-            match slot.as_ref() {
-                Some(h) => h.update_keymap(map),
-                None => *slot = Some(HidMapper::start(map)),
-            }
-        } else {
-            *slot = None; // Drop 停止读取线程并恢复
+        match slot.as_ref() {
+            Some(h) => h.update_keymap(map),
+            None => *slot = Some(HidMapper::start(map)),
         }
     }
     #[cfg(not(target_os = "macos"))]
     let _ = state;
+}
+
+/// 注册前台应用监听（macOS）。只在按键映射**已在运行**时才热更新映射：
+/// 保持"没启用映射就完全不介入系统"这一点不变。
+#[cfg(target_os = "macos")]
+fn watch_front_app(handle: &AppHandle) {
+    let handle = handle.clone();
+    let own_id = handle.config().identifier.clone();
+    frontapp::watch(Arc::new(move |app| {
+        let state = handle.state::<AppState>();
+        let label = app.as_ref().map(|a| a.bundle_id.clone());
+        let (switched, recent) = {
+            let mut front = state.front.lock().unwrap();
+            let switched = front.active.as_ref().map(|a| &a.bundle_id)
+                != app.as_ref().map(|a| &a.bundle_id);
+            front.active = app.clone();
+            let recent = match app {
+                Some(a) if a.bundle_id != own_id => {
+                    front.recent = Some(a);
+                    front.recent.clone()
+                }
+                _ => None,
+            };
+            (switched, recent)
+        };
+        if !switched {
+            return;
+        }
+        log::debug!("前台应用：{}", label.as_deref().unwrap_or("(无)"));
+        if state.hid.lock().unwrap().is_some() {
+            refresh_hid(&state);
+        }
+        if let Some(recent) = recent {
+            let _ = handle.emit("front-app", app_dto(&state, recent));
+        }
+    }));
 }
 
 fn emit_status(app: &AppHandle, dto: StatusDto) {
@@ -526,6 +800,14 @@ pub fn run() {
             get_buttons,
             set_binding,
             reset_bindings,
+            list_running_apps,
+            get_front_app,
+            get_app_profiles,
+            add_app_profile,
+            remove_app_profile,
+            set_app_profile_enabled,
+            set_app_binding,
+            clear_app_bindings,
             set_output,
             set_gain,
             set_fn_remap,
@@ -552,8 +834,14 @@ pub fn run() {
                 bridge: Mutex::new(None),
                 #[cfg(target_os = "macos")]
                 hid: Mutex::new(None),
+                #[cfg(target_os = "macos")]
+                front: Mutex::new(FrontState::default()),
                 app: handle.clone(),
             });
+
+            // 前台应用监听要在主线程注册；setup 就在主线程上。
+            #[cfg(target_os = "macos")]
+            watch_front_app(&handle);
 
             // 托盘菜单
             let settings_item = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;

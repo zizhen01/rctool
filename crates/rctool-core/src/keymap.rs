@@ -380,6 +380,153 @@ impl KeyMap {
     }
 }
 
+// ---------------------------------------------------------------------------
+// 按应用分层
+// ---------------------------------------------------------------------------
+
+/// 单个应用的按键覆盖层。**只记录与全局映射不同的键**。
+///
+/// 存差量而不是整表：全局改了某键，没有专门覆盖该键的应用会自动跟着变；
+/// 设置界面也因此天然只需要展示"这个应用和全局差在哪"。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AppProfile {
+    /// macOS bundle identifier，如 `com.apple.Safari`。唯一键。
+    pub bundle_id: String,
+    /// 显示名（本地化应用名），纯展示用，匹配只看 bundle_id。
+    pub name: String,
+    /// 关掉即整层旁路，保留覆盖内容便于临时对比。
+    pub enabled: bool,
+    overrides: std::collections::HashMap<RemoteButton, Action>,
+}
+
+impl AppProfile {
+    pub fn new(bundle_id: impl Into<String>, name: impl Into<String>) -> AppProfile {
+        AppProfile {
+            bundle_id: bundle_id.into(),
+            name: name.into(),
+            enabled: true,
+            overrides: std::collections::HashMap::new(),
+        }
+    }
+
+    pub fn get(&self, button: RemoteButton) -> Option<Action> {
+        self.overrides.get(&button).copied()
+    }
+
+    pub fn set(&mut self, button: RemoteButton, action: Action) {
+        self.overrides.insert(button, action);
+    }
+
+    /// 清除覆盖 → 该键回落到全局映射。
+    pub fn clear(&mut self, button: RemoteButton) {
+        self.overrides.remove(&button);
+    }
+
+    pub fn clear_all(&mut self) {
+        self.overrides.clear();
+    }
+
+    /// 覆盖项，按 [`RemoteButton::ALL`] 顺序（界面列表稳定）。
+    pub fn entries(&self) -> Vec<(RemoteButton, Action)> {
+        RemoteButton::ALL
+            .into_iter()
+            .filter_map(|b| self.get(b).map(|a| (b, a)))
+            .collect()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.overrides.is_empty()
+    }
+}
+
+/// 某键在某应用下与全局的差异。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Diff {
+    pub button: RemoteButton,
+    /// 全局映射里的动作。
+    pub base: Action,
+    /// 该应用覆盖后的动作。
+    pub app: Action,
+}
+
+/// 全局映射 + 按 bundle id 的覆盖层集合。
+///
+/// 运行时用法：前台应用变化 → [`AppKeyMaps::resolve`] 得到该应用生效的完整
+/// [`KeyMap`] → 热更新给 HID 层。HID 层本身对"哪个应用"无感知。
+#[derive(Debug, Clone, Default)]
+pub struct AppKeyMaps {
+    base: KeyMap,
+    /// 保持用户添加顺序，界面列表不会因 HashMap 迭代乱序。
+    profiles: Vec<AppProfile>,
+}
+
+impl AppKeyMaps {
+    pub fn new(base: KeyMap) -> AppKeyMaps {
+        AppKeyMaps { base, profiles: Vec::new() }
+    }
+
+    pub fn base(&self) -> &KeyMap {
+        &self.base
+    }
+
+    pub fn set_base(&mut self, base: KeyMap) {
+        self.base = base;
+    }
+
+    pub fn profiles(&self) -> &[AppProfile] {
+        &self.profiles
+    }
+
+    pub fn profile(&self, bundle_id: &str) -> Option<&AppProfile> {
+        self.profiles.iter().find(|p| p.bundle_id == bundle_id)
+    }
+
+    /// 取覆盖层，不存在则新建（首次改键即建层）。
+    pub fn profile_mut(&mut self, bundle_id: &str, name: &str) -> &mut AppProfile {
+        match self.profiles.iter().position(|p| p.bundle_id == bundle_id) {
+            Some(i) => &mut self.profiles[i],
+            None => {
+                self.profiles.push(AppProfile::new(bundle_id, name));
+                self.profiles.last_mut().expect("刚推入")
+            }
+        }
+    }
+
+    pub fn remove(&mut self, bundle_id: &str) {
+        self.profiles.retain(|p| p.bundle_id != bundle_id);
+    }
+
+    /// 该应用生效的完整映射：全局为底，叠加启用中的覆盖层。
+    /// `bundle_id` 为 `None`（无前台应用）或无覆盖层时直接给全局映射。
+    pub fn resolve(&self, bundle_id: Option<&str>) -> KeyMap {
+        let Some(profile) = bundle_id.and_then(|id| self.profile(id)) else {
+            return self.base.clone();
+        };
+        if !profile.enabled {
+            return self.base.clone();
+        }
+        let mut map = self.base.clone();
+        for (button, action) in profile.entries() {
+            map.set(button, action);
+        }
+        map
+    }
+
+    /// 该应用与全局的差异列表（界面直接渲染）。覆盖成"和全局相同"的键不算
+    /// 差异——它对运行时没有影响，列出来只会让人误以为改了什么。
+    pub fn diff(&self, bundle_id: &str) -> Vec<Diff> {
+        let Some(profile) = self.profile(bundle_id) else {
+            return Vec::new();
+        };
+        profile
+            .entries()
+            .into_iter()
+            .map(|(button, app)| Diff { button, base: self.base.action(button), app })
+            .filter(|d| d.base != d.app)
+            .collect()
+    }
+}
+
 /// 从遥控器 HID input report 解析出当前按下的键盘页 usage 集合。
 ///
 /// 报文格式（真机实测）：reportID 1；若长度 7 且首字节等于 reportID 则先剥离，
@@ -505,5 +652,95 @@ mod tests {
         for b in RemoteButton::ALL {
             assert_eq!(RemoteButton::from_id(b.id()), Some(b));
         }
+    }
+
+    // --- 按应用分层 ---
+
+    fn maps_with_safari_override() -> AppKeyMaps {
+        let mut maps = AppKeyMaps::new(KeyMap::with_defaults());
+        maps.profile_mut("com.apple.Safari", "Safari")
+            .set(RemoteButton::Tv, Action::Escape);
+        maps
+    }
+
+    #[test]
+    fn resolve_falls_back_to_base_without_profile() {
+        let maps = maps_with_safari_override();
+        for bundle in [None, Some("com.apple.Finder")] {
+            let map = maps.resolve(bundle);
+            assert_eq!(map.action(RemoteButton::Tv), Action::AppSwitcher);
+        }
+    }
+
+    #[test]
+    fn resolve_applies_only_overridden_keys() {
+        let maps = maps_with_safari_override();
+        let map = maps.resolve(Some("com.apple.Safari"));
+        assert_eq!(map.action(RemoteButton::Tv), Action::Escape);
+        // 未覆盖的键仍来自全局。
+        assert_eq!(map.action(RemoteButton::Back), Action::Delete);
+        assert_eq!(
+            map.disposition(RemoteButton::Tv),
+            Disposition::Remap(Injection { keycode: 53, mods: Mods::NONE })
+        );
+    }
+
+    #[test]
+    fn disabled_profile_is_bypassed_but_kept() {
+        let mut maps = maps_with_safari_override();
+        maps.profile_mut("com.apple.Safari", "Safari").enabled = false;
+        assert_eq!(
+            maps.resolve(Some("com.apple.Safari")).action(RemoteButton::Tv),
+            Action::AppSwitcher
+        );
+        // 内容不丢，重新启用即恢复。
+        maps.profile_mut("com.apple.Safari", "Safari").enabled = true;
+        assert_eq!(
+            maps.resolve(Some("com.apple.Safari")).action(RemoteButton::Tv),
+            Action::Escape
+        );
+    }
+
+    #[test]
+    fn base_changes_flow_through_uncovered_keys() {
+        // 差量存储的意义：全局改键，应用层没覆盖的那些键跟着变。
+        let mut maps = maps_with_safari_override();
+        let mut base = maps.base().clone();
+        base.set(RemoteButton::Back, Action::Escape);
+        maps.set_base(base);
+        let map = maps.resolve(Some("com.apple.Safari"));
+        assert_eq!(map.action(RemoteButton::Back), Action::Escape); // 跟随全局
+        assert_eq!(map.action(RemoteButton::Tv), Action::Escape); // 仍被覆盖
+    }
+
+    #[test]
+    fn diff_lists_only_real_differences_in_button_order() {
+        let mut maps = AppKeyMaps::new(KeyMap::with_defaults());
+        {
+            let p = maps.profile_mut("com.apple.Safari", "Safari");
+            p.set(RemoteButton::Tv, Action::Escape);
+            // 覆盖成与全局相同的动作：运行时无影响，不该出现在差异里。
+            p.set(RemoteButton::Back, Action::Delete);
+            p.set(RemoteButton::Power, Action::Disabled);
+        }
+        let diff = maps.diff("com.apple.Safari");
+        let buttons: Vec<RemoteButton> = diff.iter().map(|d| d.button).collect();
+        assert_eq!(buttons, vec![RemoteButton::Power, RemoteButton::Tv]);
+        assert_eq!(diff[0].base, Action::Escape);
+        assert_eq!(diff[0].app, Action::Disabled);
+        assert!(maps.diff("com.unknown.App").is_empty());
+    }
+
+    #[test]
+    fn clearing_an_override_returns_the_key_to_base() {
+        let mut maps = maps_with_safari_override();
+        maps.profile_mut("com.apple.Safari", "Safari").clear(RemoteButton::Tv);
+        assert!(maps.profile("com.apple.Safari").unwrap().is_empty());
+        assert_eq!(
+            maps.resolve(Some("com.apple.Safari")).action(RemoteButton::Tv),
+            Action::AppSwitcher
+        );
+        maps.remove("com.apple.Safari");
+        assert!(maps.profiles().is_empty());
     }
 }

@@ -1,6 +1,6 @@
 //! 持久化配置。
 
-use rctool_core::keymap::{Action, KeyMap, RemoteButton};
+use rctool_core::keymap::{Action, AppKeyMaps, KeyMap, RemoteButton};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -20,6 +20,31 @@ pub struct Config {
     pub key_mapping: bool,
     /// 按键覆盖：button_id → action_id。缺省用出厂默认。
     pub bindings: HashMap<String, String>,
+    /// 按应用的覆盖层（macOS）。数组而非映射：顺序即界面列表顺序。
+    pub app_profiles: Vec<AppProfile>,
+}
+
+/// 一个应用的按键覆盖层。只存与全局不同的键——见
+/// [`rctool_core::keymap::AppProfile`] 的差量设计说明。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AppProfile {
+    pub bundle_id: String,
+    /// 添加时记下的显示名；应用改名不影响匹配（匹配只看 bundle_id）。
+    pub name: String,
+    pub enabled: bool,
+    pub bindings: HashMap<String, String>,
+}
+
+impl Default for AppProfile {
+    fn default() -> Self {
+        Self {
+            bundle_id: String::new(),
+            name: String::new(),
+            enabled: true,
+            bindings: HashMap::new(),
+        }
+    }
 }
 
 impl Default for Config {
@@ -31,6 +56,7 @@ impl Default for Config {
             win_hotkey: true,
             key_mapping: false,
             bindings: HashMap::new(),
+            app_profiles: Vec::new(),
         }
     }
 }
@@ -58,6 +84,42 @@ impl Config {
             }
             Err(e) => log::warn!("配置序列化失败: {e}"),
         }
+    }
+
+    /// 全局映射 + 各应用覆盖层。运行时按前台应用 `resolve` 出实际映射。
+    pub fn app_key_maps(&self) -> AppKeyMaps {
+        let mut maps = AppKeyMaps::new(self.key_map());
+        for stored in &self.app_profiles {
+            let profile = maps.profile_mut(&stored.bundle_id, &stored.name);
+            profile.enabled = stored.enabled;
+            for (button_id, action_id) in &stored.bindings {
+                if let (Some(button), Some(action)) =
+                    (RemoteButton::from_id(button_id), Action::from_id(action_id))
+                {
+                    profile.set(button, action);
+                }
+            }
+        }
+        maps
+    }
+
+    /// 取某应用的覆盖层，不存在则新建（首次改键即建层）。
+    pub fn app_profile_mut(&mut self, bundle_id: &str, name: &str) -> &mut AppProfile {
+        match self.app_profiles.iter().position(|p| p.bundle_id == bundle_id) {
+            Some(i) => &mut self.app_profiles[i],
+            None => {
+                self.app_profiles.push(AppProfile {
+                    bundle_id: bundle_id.to_string(),
+                    name: name.to_string(),
+                    ..AppProfile::default()
+                });
+                self.app_profiles.last_mut().expect("刚推入")
+            }
+        }
+    }
+
+    pub fn remove_app_profile(&mut self, bundle_id: &str) {
+        self.app_profiles.retain(|p| p.bundle_id != bundle_id);
     }
 
     /// 由存储的覆盖构造完整按键映射（以出厂默认为底）。

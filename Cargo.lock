@@ -3064,6 +3064,7 @@ name = "rctool-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "block2",
  "bluest",
  "core-foundation",
  "core-foundation-sys",
@@ -3072,6 +3073,8 @@ dependencies = [
  "futures-lite 2.6.1",
  "hound",
  "log",
+ "objc2-app-kit",
+ "objc2-foundation",
  "ringbuf",
  "tokio",
  "tokio-util",

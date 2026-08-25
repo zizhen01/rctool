@@ -336,6 +336,167 @@ button.ghost.sm { padding: 5px 12px; font-size: 12px; font-weight: 500; }
   box-shadow: var(--shadow);
 }
 
+/* 应用页：左应用列表，右差异表（只呈现与全局映射的差异）*/
+.app-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.app-add select { flex: 1.3; min-width: 0; }
+.app-add input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12.5px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.app-add button { flex: none; }
+.warn.subtle { color: var(--hint); }
+
+.apps-layout {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.app-list {
+  flex: none;
+  width: 186px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.app-detail {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+@media (max-width: 560px) {
+  .apps-layout { flex-direction: column; }
+  .app-list, .app-detail { width: 100%; }
+}
+
+.app-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  text-align: left;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+.app-item.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
+}
+.app-item .an {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+.app-item .ab {
+  font-size: 10.5px;
+  color: var(--hint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 绿点＝此刻正是前台应用 */
+.app-item .live {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex: none;
+}
+.app-item .n {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--hint);
+  flex: none;
+}
+.app-item.off .an, .app-item.off .ab { opacity: 0.45; }
+
+.app-empty {
+  color: var(--hint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.app-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.app-head .bundle {
+  font-size: 10.5px;
+  color: var(--hint);
+  margin-top: 3px;
+  word-break: break-all;
+}
+.app-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+/* 差异行：按键 | 全局动作 → 应用动作 | 清除 */
+.diff-table td.from {
+  color: var(--hint);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.diff-table td.arrow {
+  width: 1%;
+  padding: 6px 2px;
+  color: var(--hint);
+}
+.diff-table td.to { width: 40%; }
+.diff-table td.del { width: 1%; padding-left: 4px; }
+.diff-table td.k { width: 22%; }
+button.iconbtn {
+  border: none;
+  background: transparent;
+  color: var(--hint);
+  font-size: 12px;
+  padding: 3px 5px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+button.iconbtn:hover {
+  color: var(--err);
+  background: color-mix(in srgb, var(--err) 12%, transparent);
+}
+
+/* 卡片默认竖排，这一行要横排 */
+.add-override {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+}
+.add-override select {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+.add-override button { flex: none; }
+
 /* 遥控器实物图（照真机比例：银色金属机身 + 深灰键 + 音量胶囊摇杆）*/
 :root {
   --remote-edge: #b9b9bd;

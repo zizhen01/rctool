@@ -20,6 +20,24 @@ uuid = "1"
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.10"
 core-foundation-sys = "0.8"
+# 前台应用检测（NSWorkspace）。版本与 tauri 依赖树一致，不引入额外编译单元。
+block2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = [
+    "std",
+    "NSArray",
+    "NSDictionary",
+    "NSEnumerator",
+    "NSNotification",
+    "NSObject",
+    "NSOperation",
+    "NSString",
+] }
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+    "std",
+    "NSApplication",
+    "NSRunningApplication",
+    "NSWorkspace",
+] }
 
 [dev-dependencies]
 env_logger = "0.11"

@@ -15,6 +15,7 @@
 //! - [`sink`]：PCM 出口抽象（wav / 扇出 / 将来 ASR）
 //! - [`loopback`]：cpal 回环输出（BlackHole / VB-Cable / null-sink）
 //! - [`bridge`]：bluest BLE 发现、连接、事件泵与断线重连
+//! - [`frontapp`]：macOS 前台应用检测（驱动按应用分层的按键映射）
 //!
 //! 与原 Swift 实现的最大结构差异：不需要 generation gating。会话与连接
 //! 同生共死（所有权），旧连接的回调不可能投递到新会话。
@@ -24,6 +25,8 @@ pub mod atvv;
 pub mod bridge;
 pub mod dsp;
 pub mod fnmap;
+#[cfg(target_os = "macos")]
+pub mod frontapp;
 #[cfg(target_os = "macos")]
 pub mod hidmap;
 pub mod keymap;

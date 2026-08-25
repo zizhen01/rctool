@@ -42,7 +42,7 @@ npx --yes @tauri-apps/cli@2 build
 
 ```
 src/                     纯静态前端（无打包器）
-  index.html             三个标签页：连接 / 按键 / 权限
+  index.html             四个标签页：连接 / 按键 / 应用 / 权限
   styles.css             明暗自适应
   main.js                通过 window.__TAURI__ 调用后端命令
 src-tauri/
@@ -61,10 +61,11 @@ src-tauri/
 | --- | --- | --- | --- |
 | BLE 语音 → 虚拟麦克风 | ✅ BlackHole | ✅ VB-Cable | ✅ null-sink |
 | 听写触发 | F5→Fn 设备级重映射（按住即听写） | 语音流边沿合成 Win+H（切换语音输入） | 无系统级听写，仅提供虚拟麦克风 |
-| 按键映射（拦截/注入） | ✅ 连接/按键/权限三页 | 未实现（Win 禁止用户态 raw 读键盘 HID） | 未实现 |
+| 按键映射（拦截/注入） | ✅ 连接/按键/应用/权限四页 | 未实现（Win 禁止用户态 raw 读键盘 HID） | 未实现 |
+| 按应用覆盖映射 | ✅ NSWorkspace 前台应用通知 | 未实现 | 未实现 |
 
-macOS 显示「连接/按键/权限」三页；Windows 显示「连接」页并多一个 Win+H 开关；
-Linux 只显示「连接」页。这些差异全在前端按 `platform` 切换，后端命令三平台一致。
+macOS 显示「连接/按键/应用/权限」四页；Windows 显示「连接」页并多一个 Win+H
+开关；Linux 只显示「连接」页。这些差异全在前端按 `platform` 切换，后端命令三平台一致。
 
 ## 设置页
 
@@ -72,10 +73,17 @@ Linux 只显示「连接」页。这些差异全在前端按 `platform` 切换�
 | --- | --- |
 | 连接 | 语音输出设备选择（标注回环设备）、增益、听写触发开关、启用/停用桥接 |
 | 按键 | （仅 macOS）启用按键映射开关；12 个实体键逐个下拉选择动作；恢复默认 |
+| 应用 | （仅 macOS）按前台应用的覆盖层：只列出与「按键」页全局映射的差异 |
 | 权限 | （仅 macOS）输入监控 / 辅助功能状态与请求入口 |
 
 配置改动即时保存并热生效：改键无需重启读取线程（`HidMapper::update_keymap`），
 换输出设备下次启用桥接时生效。
+
+「应用」页刻意不复制「按键」页那张整表——一个应用值得单独记住的，就是它和全局
+差在哪几个键。覆盖层只存差量，所以全局改了某个键，没有专门覆盖它的应用会跟着
+变。前台应用切换（`rctool_core::frontapp` 的 NSWorkspace 通知，主线程注册）只是
+把解析出的那张表热更新给 HID 层——HID 层对"哪个应用"毫不知情，和界面上改键走的
+是同一条路径。映射未启用时不介入：前台变化只在读取线程已在跑时才触发热更新。
 
 ## 后端命令
 
@@ -83,7 +91,12 @@ Linux 只显示「连接」页。这些差异全在前端按 `platform` 切换�
 `reset_bindings` `set_output` `set_gain` `set_fn_remap` `set_key_mapping`
 `get_permissions` `request_permissions` `start_bridge` `stop_bridge`
 
-桥接状态通过 `bridge-status` 事件推送给前端，同时更新托盘 tooltip。
+按应用覆盖：`list_running_apps` `get_front_app` `get_app_profiles`
+`add_app_profile` `remove_app_profile` `set_app_profile_enabled`
+`set_app_binding` `clear_app_bindings`
+
+桥接状态通过 `bridge-status` 事件推送给前端，同时更新托盘 tooltip；前台应用变化
+通过 `front-app` 事件推送（用于「应用」页的"生效中"标记与快捷添加）。
 
 ## 已知边界（待真机验证）
 

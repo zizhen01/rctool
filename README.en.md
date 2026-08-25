@@ -21,6 +21,8 @@ There are many remotes out there — PRs adding support for more models are welc
 
 Key remapping (optional): open the Keys page, click a button on the remote diagram to remap it. Requires Input Monitoring and Accessibility permissions.
 
+Want one app to behave differently (say OK sends Space inside a video player)? Add an override layer for it on the Apps page — you only write the keys that differ from the global map, and it kicks in whenever that app is in front.
+
 ## Usage
 
 ```bash
@@ -38,7 +40,7 @@ cargo run -p rctool-cli --release -- run --wav test.wav       # debug: dump voic
 
 | Platform | Voice → virtual mic | Dictation trigger | Key remapping |
 | --- | --- | --- | --- |
-| macOS | ✅ BlackHole (bundled installer in full edition / brew·web guidance in lite) | Hold mic button to dictate (device-scoped F5→Fn remap) | ✅ 13-key visual remapping |
+| macOS | ✅ BlackHole (bundled installer in full edition / brew·web guidance in lite) | Hold mic button to dictate (device-scoped F5→Fn remap) | ✅ 13-key visual remapping + per-app overrides |
 | Windows | ✅ VB-Cable (one-click fetch from the official source) | Auto Win+H on voice | Not yet |
 | Linux | ✅ One-click null-sink, nothing to download | No system dictation; virtual mic only | Not yet |
 

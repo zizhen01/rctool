@@ -14,6 +14,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
     $("#page-" + tab.dataset.tab).classList.add("active");
     if (tab.dataset.tab === "permissions") refreshPermissions();
     if (tab.dataset.tab === "keys") refreshButtons();
+    if (tab.dataset.tab === "apps") refreshApps();
   });
 });
 
@@ -78,10 +79,10 @@ function applyPlatform() {
   document.body.classList.toggle("mac", isMac);
   $("#card-fn-remap").hidden = !isMac;
   $("#card-win-hotkey").hidden = platform !== "windows";
-  const keysTab = document.querySelector('.tab[data-tab="keys"]');
-  const permsTab = document.querySelector('.tab[data-tab="permissions"]');
-  keysTab.style.display = isMac ? "" : "none";
-  permsTab.style.display = isMac ? "" : "none";
+  // 按键映射与按应用覆盖都依赖 macOS 的 HID/NSWorkspace 通路。
+  for (const name of ["keys", "apps", "permissions"]) {
+    document.querySelector(`.tab[data-tab="${name}"]`).style.display = isMac ? "" : "none";
+  }
 }
 
 $("#output-select").addEventListener("change", (e) => {
@@ -283,6 +284,287 @@ $("#key-mapping").addEventListener("change", async (e) => {
 $("#reset-bindings").addEventListener("click", async () => {
   await invoke("reset_bindings");
   await refreshButtons();
+});
+
+// ---- 应用页（按前台应用覆盖：只呈现与全局映射的差异）----
+//
+// 界面刻意不复制「按键」页那张整表：一个应用值得单独记住的信息，就是它和全局
+// 差在哪几个键。其余键沿用全局，全局改了它们也跟着改。
+let appProfiles = [];
+let selectedApp = null;
+let baseButtons = [];
+let frontApp = null;
+
+async function refreshApps() {
+  if (!actionsCache) actionsCache = await invoke("get_actions");
+  const cfg = await invoke("get_config");
+  $("#apps-need-mapping").hidden = cfg.key_mapping;
+  baseButtons = await invoke("get_buttons");
+  appProfiles = await invoke("get_app_profiles");
+  if (!appProfiles.some((p) => p.bundle_id === selectedApp)) {
+    selectedApp = appProfiles.length ? appProfiles[0].bundle_id : null;
+  }
+  renderAppList();
+  renderAppDetail();
+  await refreshAppPicker();
+  await refreshFrontAppHint();
+}
+
+function renderAppList() {
+  const list = $("#app-list");
+  list.innerHTML = "";
+  if (!appProfiles.length) {
+    const empty = document.createElement("div");
+    empty.className = "app-empty";
+    empty.textContent = "还没有按应用的覆盖。";
+    list.appendChild(empty);
+    return;
+  }
+  for (const p of appProfiles) {
+    const item = document.createElement("button");
+    item.className =
+      "app-item" + (p.bundle_id === selectedApp ? " selected" : "") + (p.enabled ? "" : " off");
+
+    const name = document.createElement("div");
+    name.className = "an";
+    if (p.active) {
+      const live = document.createElement("span");
+      live.className = "live";
+      live.title = "此刻正是前台应用";
+      name.appendChild(live);
+    }
+    name.appendChild(document.createTextNode(p.name || p.bundle_id));
+    const count = document.createElement("span");
+    count.className = "n";
+    count.textContent = p.diffs.length ? p.diffs.length + " 项" : "无差异";
+    name.appendChild(count);
+
+    const bundle = document.createElement("div");
+    bundle.className = "ab";
+    bundle.textContent = p.bundle_id;
+
+    item.append(name, bundle);
+    item.addEventListener("click", () => {
+      selectedApp = p.bundle_id;
+      renderAppList();
+      renderAppDetail();
+    });
+    list.appendChild(item);
+  }
+}
+
+/// 动作下拉：与「按键」页共用同一份动作清单。
+function actionSelect(currentId, onPick) {
+  const sel = document.createElement("select");
+  for (const a of actionsCache) {
+    const opt = document.createElement("option");
+    opt.value = a.id;
+    opt.textContent = a.label;
+    if (a.id === currentId) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  sel.addEventListener("change", (e) => onPick(e.target.value));
+  return sel;
+}
+
+async function setAppBinding(profile, buttonId, actionId) {
+  await invoke("set_app_binding", {
+    bundleId: profile.bundle_id,
+    name: profile.name,
+    buttonId,
+    actionId,
+  });
+  await refreshApps();
+}
+
+function renderAppDetail() {
+  const host = $("#app-detail");
+  host.innerHTML = "";
+  const p = appProfiles.find((x) => x.bundle_id === selectedApp);
+  if (!p) {
+    const card = document.createElement("div");
+    card.className = "card app-empty";
+    card.textContent = "先在上面添加一个应用，然后在这里只写下它与全局映射的差异。";
+    host.appendChild(card);
+    return;
+  }
+
+  // 头部：应用名 / bundle id / 启停 / 移除
+  const head = document.createElement("div");
+  head.className = "card";
+  const row = document.createElement("div");
+  row.className = "app-head";
+  const label = document.createElement("div");
+  label.className = "label";
+  const title = document.createElement("div");
+  title.className = "title";
+  title.textContent = p.name || p.bundle_id;
+  const bundle = document.createElement("div");
+  bundle.className = "bundle";
+  bundle.textContent = p.bundle_id + (p.active ? " · 前台生效中" : "");
+  label.append(title, bundle);
+
+  const actions = document.createElement("div");
+  actions.className = "app-head-actions";
+  const toggle = document.createElement("input");
+  toggle.type = "checkbox";
+  toggle.checked = p.enabled;
+  toggle.title = "启用这一层";
+  toggle.addEventListener("change", async () => {
+    await invoke("set_app_profile_enabled", { bundleId: p.bundle_id, enabled: toggle.checked });
+    await refreshApps();
+  });
+  const remove = document.createElement("button");
+  remove.className = "ghost sm";
+  remove.textContent = "移除";
+  remove.addEventListener("click", async () => {
+    await invoke("remove_app_profile", { bundleId: p.bundle_id });
+    selectedApp = null;
+    await refreshApps();
+  });
+  actions.append(toggle, remove);
+  row.append(label, actions);
+  head.appendChild(row);
+  host.appendChild(head);
+
+  // 差异表：按键 | 全局动作 → 应用动作 | 清除
+  const card = document.createElement("div");
+  card.className = "card map-table diff-table";
+  if (p.diffs.length) {
+    const table = document.createElement("table");
+    const tbody = document.createElement("tbody");
+    for (const d of p.diffs) {
+      const tr = document.createElement("tr");
+      tr.className = "maprow";
+      const key = document.createElement("td");
+      key.className = "k";
+      key.textContent = d.button_label;
+      const from = document.createElement("td");
+      from.className = "from";
+      from.textContent = d.base_action_label;
+      from.title = "全局映射";
+      const arrow = document.createElement("td");
+      arrow.className = "arrow";
+      arrow.textContent = "→";
+      const to = document.createElement("td");
+      to.className = "to";
+      to.appendChild(actionSelect(d.action_id, (id) => setAppBinding(p, d.button_id, id)));
+      const del = document.createElement("td");
+      del.className = "del";
+      const clear = document.createElement("button");
+      clear.className = "iconbtn";
+      clear.textContent = "✕";
+      clear.title = "清除覆盖，这个键回到全局";
+      clear.addEventListener("click", () => setAppBinding(p, d.button_id, null));
+      del.appendChild(clear);
+      tr.append(key, from, arrow, to, del);
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    card.appendChild(table);
+  } else {
+    const empty = document.createElement("div");
+    empty.className = "app-empty";
+    empty.textContent = "与全局映射完全一致。下面挑一个键改动作，它就会出现在这里。";
+    card.appendChild(empty);
+  }
+  host.appendChild(card);
+
+  const rest = baseButtons.length - p.diffs.length;
+  const note = document.createElement("div");
+  note.className = "hint";
+  note.textContent = `其余 ${rest} 个键沿用全局映射——全局改了，这里跟着改。`;
+  host.appendChild(note);
+
+  // 加一条覆盖：只列还没被覆盖的键
+  const available = baseButtons.filter((b) => !p.diffs.some((d) => d.button_id === b.id));
+  if (available.length) {
+    const adder = document.createElement("div");
+    adder.className = "card add-override";
+    const buttonSel = document.createElement("select");
+    const ph = document.createElement("option");
+    ph.value = "";
+    ph.textContent = "— 选择按键 —";
+    buttonSel.appendChild(ph);
+    for (const b of available) {
+      const opt = document.createElement("option");
+      opt.value = b.id;
+      opt.textContent = b.label;
+      buttonSel.appendChild(opt);
+    }
+    // 动作下拉预置为该键的全局动作，改成别的才算差异。
+    const actionSel = actionSelect(null, () => {});
+    const sync = () => {
+      const b = baseButtons.find((x) => x.id === buttonSel.value);
+      if (b) actionSel.value = b.action_id;
+    };
+    buttonSel.addEventListener("change", sync);
+    const add = document.createElement("button");
+    add.className = "ghost sm";
+    add.textContent = "加覆盖";
+    add.addEventListener("click", () => {
+      if (!buttonSel.value) return;
+      setAppBinding(p, buttonSel.value, actionSel.value);
+    });
+    adder.append(buttonSel, actionSel, add);
+    host.appendChild(adder);
+  }
+}
+
+/// 候选应用：正在运行、还没有覆盖层的。
+async function refreshAppPicker() {
+  const apps = await invoke("list_running_apps");
+  const sel = $("#app-picker");
+  sel.innerHTML = "";
+  const ph = document.createElement("option");
+  ph.value = "";
+  ph.textContent = "— 运行中的应用 —";
+  sel.appendChild(ph);
+  for (const a of apps) {
+    if (a.has_profile) continue;
+    const opt = document.createElement("option");
+    opt.value = a.bundle_id;
+    opt.textContent = a.name;
+    sel.appendChild(opt);
+  }
+}
+
+/// 设置窗被看着的时候前台就是 RCTool 自己，所以提示的是"刚才那个"应用。
+async function refreshFrontAppHint() {
+  frontApp = await invoke("get_front_app");
+  const box = $("#front-app-hint");
+  if (!frontApp || frontApp.has_profile) {
+    box.hidden = true;
+    return;
+  }
+  $("#front-app-text").textContent = `刚才在前台的是「${frontApp.name}」（${frontApp.bundle_id}）`;
+  box.hidden = false;
+}
+
+async function addAppProfile(bundleId, name) {
+  await invoke("add_app_profile", { bundleId, name });
+  selectedApp = bundleId;
+  await refreshApps();
+}
+
+$("#add-app").addEventListener("click", async () => {
+  const manual = $("#app-bundle").value.trim();
+  const picker = $("#app-picker");
+  const bundleId = manual || picker.value;
+  if (!bundleId) return;
+  const name = manual ? manual : picker.selectedOptions[0]?.textContent || bundleId;
+  $("#app-bundle").value = "";
+  picker.value = "";
+  await addAppProfile(bundleId, name);
+});
+
+$("#add-front-app").addEventListener("click", async () => {
+  if (frontApp) await addAppProfile(frontApp.bundle_id, frontApp.name);
+});
+
+// 前台应用变了：应用页开着就顺手刷新（"生效中"标记与提示都会变）。
+listen("front-app", () => {
+  if ($("#page-apps").classList.contains("active")) refreshApps();
 });
 
 // ---- 权限页 ----
