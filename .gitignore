@@ -1,4 +1,5 @@
 /target
+/dist
 *.wav
 .DS_Store
 # Tauri 生成物

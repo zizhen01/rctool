@@ -71,11 +71,18 @@ cargo run -p rctool-cli --release -- run --wav test.wav       # debug: dump voic
 ## Development
 
 ```bash
-cargo test -p rctool-core        # core logic unit tests
-cargo run -p rctool-tray         # run the GUI (static frontend, no node needed)
-cd apps/tray && npx --yes @tauri-apps/cli@2 build   # local bundling
-git tag v0.1.0 && git push --tags                   # CI builds installers for all 3 platforms (draft Release)
+just --list                      # all commands (install just: brew install just)
+just run                         # run the GUI (static frontend, no node needed)
+just ci                          # same three steps as CI: test + full build + clippy
+just install                     # bundle and install into /Applications
+just deploy minits               # bundle and deploy to a remote Mac
+just dist                        # everything into dist/ (macOS: full/lite dmg + app.zip + CLI)
+git tag v0.1.0 && git push --tags  # CI builds installers for all 3 platforms (draft Release)
 ```
+
+Sign with a certificate on macOS where you can (`just sign-id` picks the only local one
+automatically). An ad-hoc signature's designated requirement is the binary hash, which changes
+on every rebuild, so system permissions have to be granted again after each reinstall.
 
 More docs: [apps/tray/README.md](apps/tray/README.md) (architecture, per-platform differences, packaging),
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) (BlackHole bundling license notes).

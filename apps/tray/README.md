@@ -131,6 +131,17 @@ macOS 显示「连接/按键/应用/权限」四页；Windows 显示「连接」
 自动解锁同一次锁屏最多试 3 次、间隔 5s，屏幕开着就重置计数。密码只进钥匙串，不进
 配置文件、不进日志、不进任何 DTO，界面只能问「存了没有」。
 
+## 签名与系统权限
+
+ad-hoc 签名的 designated requirement 是 `cdhash H"..."`，也就是某一个具体二进制的
+哈希。重编一次哈希就变，TCC 里那条授权指向的还是旧哈希，新二进制不满足 DR 被判无
+权限，而「系统设置 > 隐私与安全性」的列表按 bundle id 显示，看着还在，实际已经对
+不上。用证书签，DR 变成「bundle id + 证书」，与二进制内容无关，权限就能跨重编保留。
+
+`just sign-id` 优先读 `APPLE_SIGNING_IDENTITY`，否则本机恰好只有一张 codesigning
+证书时用那张（多张时不猜，避免签错）。从 ad-hoc 版切过来的那一次，目标机上跑一次
+`tccutil reset All dev.rctool.tray`（即 `just reset-perms`）清掉旧的僵尸记录。
+
 ## 已知边界（待真机验证）
 
 与 core 相同：BLE 连接、ATVV 语音、F5→Fn 听写、HID 拦截/注入均需接真实

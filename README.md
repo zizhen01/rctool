@@ -67,11 +67,17 @@ cargo run -p rctool-cli --release -- run --wav test.wav       # 调试：语音�
 ## 开发
 
 ```bash
-cargo test -p rctool-core        # 核心逻辑单元测试
-cargo run -p rctool-tray         # 起 GUI（前端纯静态，无 node 依赖）
-cd apps/tray && npx --yes @tauri-apps/cli@2 build   # 本地打包
-git tag v0.1.0 && git push --tags                   # CI 出三平台安装包（Release 草稿）
+just --list                      # 全部命令（装 just：brew install just）
+just run                         # 起 GUI（前端纯静态，无 node 依赖）
+just ci                          # 与 CI 同样的三步：测试 + 全量编译 + clippy
+just install                     # 打包并装到 /Applications
+just deploy minits               # 打包并部署到远程 Mac
+just dist                        # 本机全套产物到 dist/（macOS 出 full/lite dmg + app.zip + CLI）
+git tag v0.1.0 && git push --tags  # CI 出三平台安装包（Release 草稿）
 ```
+
+macOS 上尽量用证书签名（`just sign-id` 会自动选本机唯一那张）。ad-hoc 签名的
+designated requirement 就是二进制哈希，每次重编都变，于是系统权限每次重装都要重给。
 
 细节文档：[apps/tray/README.md](apps/tray/README.md)（架构、三平台差异、打包）、
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)（full 版内嵌 BlackHole 的许可说明）。
