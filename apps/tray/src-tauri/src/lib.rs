@@ -3,10 +3,15 @@
 //! 职责：管理配置、桥接（BLE→回环）生命周期、按键映射（macOS），并把状态
 //! 推给设置界面与托盘。核心逻辑全部来自 `rctool-core`，这里只做编排与 UI。
 
+#[cfg(target_os = "macos")]
+mod autostart;
 mod config;
 mod dictation;
+#[cfg(target_os = "macos")]
+mod keychain;
+mod watch;
 
-use config::Config;
+use config::{BoundDevice, Config};
 use rctool_core::bridge::{self, BridgeOptions, BridgeStatus, StatusCallback};
 use rctool_core::keymap::{Action, Disposition, RemoteButton};
 use rctool_core::loopback::{self, LoopbackSink};
@@ -47,6 +52,8 @@ struct AppState {
     config_path: PathBuf,
     config: Mutex<Config>,
     bridge: Mutex<Option<BridgeHandle>>,
+    /// 在场监管任务。与桥接彼此独立——没配语音输出也照常跑。
+    presence: Mutex<Option<watch::Handle>>,
     #[cfg(target_os = "macos")]
     hid: Mutex<Option<HidMapper>>,
     #[cfg(target_os = "macos")]
@@ -75,6 +82,28 @@ struct ConfigDto {
     running: bool,
     /// "macos" / "windows" / "linux"，前端按平台裁剪界面。
     platform: &'static str,
+    bound_device: Option<BoundDeviceDto>,
+    keep_awake: bool,
+    auto_unlock: bool,
+    /// 钥匙串里是否已存密码。**只报有无，永不回传明文。**
+    has_unlock_password: bool,
+    launch_at_login: bool,
+}
+
+#[derive(Clone, Serialize)]
+struct BoundDeviceDto {
+    id: String,
+    name: String,
+}
+
+/// 可绑定的候选遥控器。
+#[derive(Serialize)]
+struct RemoteDto {
+    id: String,
+    name: String,
+    connected: bool,
+    /// 是否就是当前已绑定的那台。
+    bound: bool,
 }
 
 #[derive(Serialize)]
@@ -182,6 +211,38 @@ fn get_config(state: State<AppState>) -> ConfigDto {
         hide_dock_on_close: c.hide_dock_on_close,
         running: state.bridge.lock().unwrap().is_some(),
         platform: std::env::consts::OS,
+        bound_device: c
+            .bound_device
+            .as_ref()
+            .map(|d| BoundDeviceDto { id: d.id.clone(), name: d.name.clone() }),
+        keep_awake: c.keep_awake,
+        auto_unlock: c.auto_unlock,
+        has_unlock_password: unlock_password_stored(),
+        launch_at_login: launch_at_login_enabled(),
+    }
+}
+
+/// 是否已设置开机自启。非 macOS 恒为 false（未实现）。
+fn launch_at_login_enabled() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        autostart::is_enabled()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
+/// 钥匙串里是否已存解锁密码。非 macOS 恒为 false。
+fn unlock_password_stored() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        keychain::has_password()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
     }
 }
 
@@ -475,6 +536,104 @@ fn set_hide_dock_on_close(state: State<AppState>, enabled: bool) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// 遥控器绑定 / 防睡眠 / 自动解锁
+// ---------------------------------------------------------------------------
+
+/// 扫描可绑定的遥控器。会跑一轮广播扫描，故耗时到秒级。
+#[tauri::command]
+async fn list_remotes(state: State<'_, AppState>) -> Result<Vec<RemoteDto>, String> {
+    let bound = state.config.lock().unwrap().bound_device.as_ref().map(|d| d.id.clone());
+    let found = rctool_core::presence::list_remotes(std::time::Duration::from_secs(6))
+        .await
+        .map_err(|e| format!("{e:#}"))?;
+    Ok(found
+        .into_iter()
+        .map(|r| RemoteDto {
+            bound: bound.as_deref() == Some(r.id.as_str()),
+            id: r.id,
+            name: r.name,
+            connected: r.connected,
+        })
+        .collect())
+}
+
+/// 绑定到指定遥控器。桥接与在场检测此后都只认这一台。
+#[tauri::command]
+fn bind_device(state: State<AppState>, id: String, name: String) {
+    state.config.lock().unwrap().bound_device = Some(BoundDevice { id, name });
+    state.save_config();
+    restart_presence(&state);
+    restart_bridge_if_running(&state);
+}
+
+#[tauri::command]
+fn unbind_device(state: State<AppState>) {
+    state.config.lock().unwrap().bound_device = None;
+    state.save_config();
+    restart_presence(&state);
+    restart_bridge_if_running(&state);
+}
+
+#[tauri::command]
+fn set_keep_awake(state: State<AppState>, enabled: bool) {
+    state.config.lock().unwrap().keep_awake = enabled;
+    state.save_config();
+    restart_presence(&state);
+}
+
+/// 开启自动解锁。没存密码就直接拒绝——与其让它静默不生效，不如在这里说清楚。
+#[tauri::command]
+fn set_auto_unlock(state: State<AppState>, enabled: bool) -> Result<(), String> {
+    if enabled && !unlock_password_stored() {
+        return Err("请先设置解锁密码".into());
+    }
+    state.config.lock().unwrap().auto_unlock = enabled;
+    state.save_config();
+    restart_presence(&state);
+    Ok(())
+}
+
+/// 把登录密码存进钥匙串。密码不落配置、不落日志，存完就只剩钥匙串里那一份。
+#[tauri::command]
+fn set_unlock_password(_password: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        if _password.is_empty() {
+            return Err("密码不能为空".into());
+        }
+        keychain::set_password(&_password)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("自动解锁目前仅支持 macOS".into())
+    }
+}
+
+/// 清除钥匙串里的密码，并连带关掉自动解锁——没有密码的自动解锁只是个空壳开关。
+#[tauri::command]
+fn clear_unlock_password(state: State<AppState>) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    keychain::clear_password()?;
+    state.config.lock().unwrap().auto_unlock = false;
+    state.save_config();
+    restart_presence(&state);
+    Ok(())
+}
+
+/// 开关开机自启。状态存在 LaunchAgent plist 里，不进配置文件。
+#[tauri::command]
+fn set_launch_at_login(_enabled: bool) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        autostart::set_enabled(_enabled)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("开机自启目前仅支持 macOS".into())
+    }
+}
+
 #[tauri::command]
 fn get_permissions() -> PermissionsDto {
     #[cfg(target_os = "macos")]
@@ -699,20 +858,59 @@ async fn stop_bridge(state: State<'_, AppState>) -> Result<(), String> {
 // 桥接 / HID 编排
 // ---------------------------------------------------------------------------
 
+/// 按当前配置重启在场监管。任何影响它的设置改动之后都要调一次。
+///
+/// 全程只在同步锁里完成：旧句柄取消后自行收尾，不 await，因此不存在
+/// "取消到重建之间被第二次调用插进来" 的窗口。
+fn restart_presence(state: &AppState) {
+    let settings = {
+        let c = state.config.lock().unwrap();
+        watch::Settings {
+            bound_id: c.bound_device.as_ref().map(|d| d.id.clone()),
+            keep_awake: c.keep_awake,
+            auto_unlock: c.auto_unlock,
+        }
+    };
+    let mut slot = state.presence.lock().unwrap();
+    if let Some(old) = slot.take() {
+        old.cancel();
+    }
+    *slot = Some(watch::start(state.app.clone(), settings));
+}
+
+/// 绑定变了要让桥接重新选设备。没在跑就什么都不做——下次启动自然带上新绑定。
+fn restart_bridge_if_running(state: &AppState) {
+    let Some(old) = state.bridge.lock().unwrap().take() else { return };
+    old.token.cancel();
+    let app = state.app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = old.join.await;
+        let state = app.state::<AppState>();
+        if let Err(e) = start_bridge_inner(&state) {
+            log::warn!("绑定变更后重启桥接失败: {e:#}");
+        }
+    });
+}
+
 fn start_bridge_inner(state: &AppState) -> anyhow::Result<()> {
     if state.bridge.lock().unwrap().is_some() {
         return Ok(());
     }
-    let (output, gain, fn_remap) = {
+    let (output, gain, fn_remap, bound_id) = {
         let c = state.config.lock().unwrap();
-        (c.output_device.clone(), c.gain_db, c.fn_remap)
+        (
+            c.output_device.clone(),
+            c.gain_db,
+            c.fn_remap,
+            c.bound_device.as_ref().map(|d| d.id.clone()),
+        )
     };
     let output = output.ok_or_else(|| anyhow::anyhow!("尚未选择语音输出设备"))?;
     let sink = LoopbackSink::open(&output)?;
     let mut multi = MultiSink::new(vec![Box::new(sink)]);
 
     let token = CancellationToken::new();
-    let opts = BridgeOptions { gain_db: gain, fn_remap, ..Default::default() };
+    let opts = BridgeOptions { gain_db: gain, fn_remap, bound_id, ..Default::default() };
     let app = state.app.clone();
     let status_cb: StatusCallback = Arc::new(move |s: BridgeStatus| {
         // Windows：语音流边沿触发系统语音输入（Win+H 切换）。
@@ -873,6 +1071,14 @@ pub fn run() {
             setup_loopback,
             start_bridge,
             stop_bridge,
+            list_remotes,
+            bind_device,
+            unbind_device,
+            set_keep_awake,
+            set_auto_unlock,
+            set_unlock_password,
+            clear_unlock_password,
+            set_launch_at_login,
         ])
         .setup(|app| {
             let handle = app.handle().clone();
@@ -887,6 +1093,7 @@ pub fn run() {
                 config_path,
                 config: Mutex::new(config),
                 bridge: Mutex::new(None),
+                presence: Mutex::new(None),
                 #[cfg(target_os = "macos")]
                 hid: Mutex::new(None),
                 #[cfg(target_os = "macos")]
@@ -897,6 +1104,13 @@ pub fn run() {
             // 前台应用监听要在主线程注册；setup 就在主线程上。
             #[cfg(target_os = "macos")]
             watch_front_app(&handle);
+
+            // 在场监管随应用启动，不等桥接——防睡眠/自动解锁不该被迫先配语音。
+            restart_presence(&handle.state::<AppState>());
+
+            // 应用可能被挪过位置（重装、换目录），对一下自启路径。
+            #[cfg(target_os = "macos")]
+            autostart::refresh_path_if_enabled();
 
             // 托盘菜单
             let settings_item = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
@@ -951,6 +1165,9 @@ pub fn run() {
                         }
                         if let Some(h) = state.bridge.lock().unwrap().take() {
                             h.token.cancel();
+                        }
+                        if let Some(h) = state.presence.lock().unwrap().take() {
+                            h.cancel();
                         }
                         app.exit(0);
                     }

@@ -25,6 +25,13 @@ log = "0.4"
 env_logger = "0.11"
 rctool-core = { path = "../../../crates/rctool-core" }
 tokio-util = "0.7"
+# 监管循环要 select! + sleep。与 rctool-core 同一份 tokio。
+tokio = { version = "1", features = ["time", "macros"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# 自动解锁要把 macOS 登录密码存进钥匙串。只用 passwords 模块（SecItem 泛型密码），
+# TLS 那部分特性用不到，但它是默认开的——关掉会连带关掉 API 可用性门控。
+security-framework = "3"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61", features = [

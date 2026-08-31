@@ -25,6 +25,23 @@ pub struct Config {
     /// macOS：关闭主窗口时把图标从 Dock 移出（切到 Accessory 激活策略），
     /// 只留菜单栏图标。再次显示窗口时切回 Regular。
     pub hide_dock_on_close: bool,
+    /// 绑定的遥控器。绑定后语音桥接与在场检测都只认这一台；None = 沿用
+    /// 「第一台匹配的就用」。
+    pub bound_device: Option<BoundDevice>,
+    /// macOS：遥控器在场期间阻止系统 idle sleep。
+    pub keep_awake: bool,
+    /// macOS：遥控器在场且屏幕锁着时，自动把钥匙串里的密码敲进登录窗。
+    /// 高风险，默认关闭——见 `rctool_core::screen` 顶部的说明。
+    pub auto_unlock: bool,
+}
+
+/// 绑定的遥控器。`id` 是匹配键（`bluest::DeviceId` 的字符串形式），
+/// `name` 只用于界面显示。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BoundDevice {
+    pub id: String,
+    pub name: String,
 }
 
 /// 一个应用的按键覆盖层。只存与全局不同的键——见
@@ -61,6 +78,9 @@ impl Default for Config {
             bindings: HashMap::new(),
             app_profiles: Vec::new(),
             hide_dock_on_close: true,
+            bound_device: None,
+            keep_awake: false,
+            auto_unlock: false,
         }
     }
 }

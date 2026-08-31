@@ -12,6 +12,7 @@ document.querySelectorAll(".tab").forEach((tab) => {
     document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"));
     tab.classList.add("active");
     $("#page-" + tab.dataset.tab).classList.add("active");
+    if (tab.dataset.tab === "device") refreshDevice();
     if (tab.dataset.tab === "permissions") refreshPermissions();
     if (tab.dataset.tab === "keys") refreshButtons();
     if (tab.dataset.tab === "apps") refreshApps();
@@ -81,6 +82,10 @@ function applyPlatform() {
   $("#card-win-hotkey").hidden = platform !== "windows";
   // Dock 是 macOS 概念，其他平台不显示这个开关。
   $("#card-hide-dock").hidden = !isMac;
+  $("#card-autostart").hidden = !isMac;
+  // 防睡眠断言与解锁键入都是 macOS 实现；绑定本身跨平台，故设备页保留。
+  $("#card-keep-awake").hidden = !isMac;
+  $("#card-auto-unlock").hidden = !isMac;
   // 按键映射与按应用覆盖都依赖 macOS 的 HID/NSWorkspace 通路。
   for (const name of ["keys", "apps", "permissions"]) {
     document.querySelector(`.tab[data-tab="${name}"]`).style.display = isMac ? "" : "none";
@@ -104,6 +109,15 @@ $("#fn-remap").addEventListener("change", (e) => {
 
 $("#win-hotkey").addEventListener("change", (e) => {
   invoke("set_win_hotkey", { enabled: e.target.checked });
+});
+
+$("#autostart").addEventListener("change", async (e) => {
+  try {
+    await invoke("set_launch_at_login", { enabled: e.target.checked });
+  } catch (err) {
+    e.target.checked = !e.target.checked;
+    applyStatus({ kind: "error", detail: String(err), streaming: false });
+  }
 });
 
 $("#hide-dock").addEventListener("change", (e) => {
@@ -573,6 +587,129 @@ listen("front-app", () => {
   if ($("#page-apps").classList.contains("active")) refreshApps();
 });
 
+// ---- 设备页（绑定 / 防睡眠 / 自动解锁）----
+let presenceState = { present: false, keeping_awake: false };
+
+function applyPresence(dto) {
+  presenceState = dto;
+  const line = $("#presence-line");
+  if (!line) return;
+  if (dto.keeping_awake) {
+    line.textContent = "在场状态：遥控器在场，正阻止睡眠";
+  } else if (dto.present) {
+    line.textContent = "在场状态：遥控器在场";
+  } else {
+    line.textContent = "在场状态：未检测到遥控器";
+  }
+}
+listen("presence-status", (e) => applyPresence(e.payload));
+
+async function refreshDevice() {
+  const cfg = await invoke("get_config");
+  const bound = cfg.bound_device;
+  $("#bound-row").hidden = !bound;
+  $("#bound-none").hidden = !!bound;
+  if (bound) $("#bound-name").textContent = bound.name || bound.id;
+  $("#keep-awake").checked = cfg.keep_awake;
+  $("#auto-unlock").checked = cfg.auto_unlock;
+  $("#password-state").textContent = cfg.has_unlock_password ? "密码：已保存在钥匙串" : "密码：未设置";
+  applyPresence(presenceState);
+}
+
+$("#scan-remotes").addEventListener("click", async () => {
+  const btn = $("#scan-remotes");
+  const list = $("#remote-list");
+  btn.disabled = true;
+  btn.textContent = "扫描中…";
+  list.hidden = false;
+  list.innerHTML = '<div class="app-empty">正在扫描（约 6 秒）…</div>';
+  try {
+    const remotes = await invoke("list_remotes");
+    list.innerHTML = "";
+    if (!remotes.length) {
+      list.innerHTML =
+        '<div class="app-empty">没找到遥控器。先在系统蓝牙里配对：长按 主页+菜单 进入配对，设备名 MI RC。</div>';
+    }
+    for (const r of remotes) {
+      const item = document.createElement("button");
+      item.className = "app-item" + (r.bound ? " selected" : "");
+      const an = document.createElement("div");
+      an.className = "an";
+      if (r.connected) {
+        const dot = document.createElement("span");
+        dot.className = "live";
+        an.appendChild(dot);
+      }
+      an.appendChild(document.createTextNode(r.name));
+      if (r.bound) {
+        const n = document.createElement("span");
+        n.className = "n";
+        n.textContent = "已绑定";
+        an.appendChild(n);
+      }
+      const ab = document.createElement("div");
+      ab.className = "ab";
+      ab.textContent = r.id;
+      item.append(an, ab);
+      item.addEventListener("click", async () => {
+        await invoke("bind_device", { id: r.id, name: r.name });
+        list.hidden = true;
+        await refreshDevice();
+      });
+      list.appendChild(item);
+    }
+  } catch (err) {
+    list.innerHTML = "";
+    const box = document.createElement("div");
+    box.className = "app-empty";
+    box.textContent = String(err);
+    list.appendChild(box);
+  }
+  btn.disabled = false;
+  btn.textContent = "扫描";
+});
+
+$("#unbind").addEventListener("click", async () => {
+  await invoke("unbind_device");
+  $("#remote-list").hidden = true;
+  await refreshDevice();
+});
+
+$("#keep-awake").addEventListener("change", async (e) => {
+  await invoke("set_keep_awake", { enabled: e.target.checked });
+});
+
+$("#auto-unlock").addEventListener("change", async (e) => {
+  try {
+    await invoke("set_auto_unlock", { enabled: e.target.checked });
+  } catch (err) {
+    // 后端拒绝了（通常是还没设密码）：把开关拨回去并说明原因。
+    e.target.checked = false;
+    $("#password-state").textContent = String(err);
+  }
+});
+
+$("#save-password").addEventListener("click", async () => {
+  const input = $("#unlock-password");
+  try {
+    await invoke("set_unlock_password", { password: input.value });
+    input.value = "";
+    await refreshDevice();
+  } catch (err) {
+    $("#password-state").textContent = String(err);
+  }
+});
+
+$("#clear-password").addEventListener("click", async () => {
+  try {
+    await invoke("clear_unlock_password");
+    $("#unlock-password").value = "";
+    await refreshDevice();
+  } catch (err) {
+    $("#password-state").textContent = String(err);
+  }
+});
+
 // ---- 权限页 ----
 async function refreshPermissions() {
   const p = await invoke("get_permissions");
@@ -608,7 +745,9 @@ async function init() {
   $("#fn-remap").checked = cfg.fn_remap;
   $("#win-hotkey").checked = cfg.win_hotkey;
   $("#hide-dock").checked = cfg.hide_dock_on_close;
+  $("#autostart").checked = cfg.launch_at_login;
   await refreshOutputs();
+  await refreshDevice();
   await syncRunning();
   applyStatus(
     cfg.running

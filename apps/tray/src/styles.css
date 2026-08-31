@@ -343,7 +343,8 @@ button.ghost.sm { padding: 5px 12px; font-size: 12px; font-weight: 500; }
   align-items: center;
 }
 .app-add select { flex: 1.3; min-width: 0; }
-.app-add input[type="text"] {
+.app-add input[type="text"],
+.app-add input[type="password"] {
   flex: 1;
   min-width: 0;
   padding: 7px 10px;
@@ -357,6 +358,10 @@ button.ghost.sm { padding: 5px 12px; font-size: 12px; font-weight: 500; }
 }
 .app-add button { flex: none; }
 .warn.subtle { color: var(--hint); }
+
+/* 设备页：候选遥控器列表占满宽度（不同于应用页的窄侧栏） */
+#remote-list { width: 100%; }
+#bound-row { margin-top: 2px; }
 
 .apps-layout {
   display: flex;

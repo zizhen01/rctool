@@ -21,7 +21,31 @@ There are many remotes out there — PRs adding support for more models are welc
 
 Key remapping (optional): open the Keys page, click a button on the remote diagram to remap it. Requires Input Monitoring and Accessibility permissions.
 
-Want one app to behave differently (say OK sends Space inside a video player)? Add an override layer for it on the Apps page — you only write the keys that differ from the global map, and it kicks in whenever that app is in front.
+Want one app to behave differently (say OK sends Space inside a video player)? Add an override layer for it on the Apps page. You only write the keys that differ from the global map, and it kicks in whenever that app is in front.
+
+## Keeping the Mac Awake
+
+While the remote is in Bluetooth range, RCTool can keep the Mac out of idle sleep and unlock
+a locked screen. An always-on Mac mini stays reachable over SSH and Screen Sharing.
+
+On the Device page:
+
+1. Scan and bind your remote. Once bound, both the voice bridge and presence detection accept
+   only that one, so an identical remote nearby never gets picked up by mistake
+2. Turn on **Keep Awake While Device Is Nearby**. It holds a `PreventUserIdleSystemSleep`
+   assertion, visible in `pmset -g assertions`. Choosing Sleep from the menu or pressing the
+   power button still puts the Mac to sleep
+3. To skip the password too, store your login password once (it goes to the Keychain) and turn
+   on **Unlock on Any Screen Lock**. Requires Accessibility permission
+4. On a headless machine, also turn on **Launch at Login** on the Connection page, or none of
+   this survives a reboot
+
+Auto-unlock is not Apple's Auto Unlock. The password goes in through synthetic keyboard events,
+so anyone who can spoof your remote can unlock the Mac. It ships off and asks for confirmation
+when you turn it on.
+
+Presence comes from the system Bluetooth connection rather than signal strength, so the
+resolution is connected or not connected. A remote sitting on the desk counts as present.
 
 ## Usage
 
@@ -38,11 +62,11 @@ cargo run -p rctool-cli --release -- run --wav test.wav       # debug: dump voic
 
 ## Platforms
 
-| Platform | Voice → virtual mic | Dictation trigger | Key remapping |
-| --- | --- | --- | --- |
-| macOS | ✅ BlackHole (bundled installer in full edition / brew·web guidance in lite) | Hold mic button to dictate (device-scoped F5→Fn remap) | ✅ 13-key visual remapping + per-app overrides |
-| Windows | ✅ VB-Cable (one-click fetch from the official source) | Auto Win+H on voice | Not yet |
-| Linux | ✅ One-click null-sink, nothing to download | No system dictation; virtual mic only | Not yet |
+| Platform | Voice → virtual mic | Dictation trigger | Key remapping | Keep awake / auto-unlock |
+| --- | --- | --- | --- | --- |
+| macOS | ✅ BlackHole (bundled installer in full edition / brew·web guidance in lite) | Hold mic button to dictate (device-scoped F5→Fn remap) | ✅ 13-key visual remapping + per-app overrides | ✅ Power assertion + lock-screen typing + launch at login |
+| Windows | ✅ VB-Cable (one-click fetch from the official source) | Auto Win+H on voice | Not yet | Not yet |
+| Linux | ✅ One-click null-sink, nothing to download | No system dictation; virtual mic only | Not yet | Not yet |
 
 ## Development
 

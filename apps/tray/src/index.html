@@ -14,6 +14,7 @@
 
     <nav class="tabs">
       <button class="tab active" data-tab="connection">连接</button>
+      <button class="tab" data-tab="device">设备</button>
       <button class="tab" data-tab="keys">按键</button>
       <button class="tab" data-tab="apps">应用</button>
       <button class="tab" data-tab="permissions">权限</button>
@@ -69,6 +70,16 @@
           </label>
         </div>
 
+        <div class="card" id="card-autostart">
+          <label class="switch-row">
+            <div class="label">
+              <div class="title">开机自动启动</div>
+              <div class="hint">写一条 LaunchAgent。无头机（比如常年开着的 Mac mini）必须开，否则重启后防睡眠就没了。</div>
+            </div>
+            <input type="checkbox" id="autostart" />
+          </label>
+        </div>
+
         <div class="card" id="card-hide-dock">
           <label class="switch-row">
             <div class="label">
@@ -80,6 +91,55 @@
         </div>
 
         <button class="primary" id="toggle-bridge">启用桥接</button>
+      </section>
+
+      <!-- 设备 -->
+      <section class="page" id="page-device">
+        <div class="card">
+          <div class="row">
+            <div class="label">
+              <div class="title">绑定遥控器</div>
+              <div class="hint">绑定后语音桥接与在场检测都只认这一台，旁边的同型号遥控器不会被误连。</div>
+            </div>
+            <button class="ghost sm" id="scan-remotes">扫描</button>
+          </div>
+          <div class="row" id="bound-row" hidden>
+            <span class="badge ok" id="bound-name"></span>
+            <button class="ghost sm" id="unbind">解绑</button>
+          </div>
+          <div class="warn subtle" id="bound-none" hidden>未绑定——当前行为是「第一台匹配的遥控器就用」。</div>
+          <div class="app-list" id="remote-list" hidden></div>
+        </div>
+
+        <div class="card" id="card-keep-awake">
+          <label class="switch-row">
+            <div class="label">
+              <div class="title">遥控器在场时阻止睡眠</div>
+              <div class="hint">遥控器在范围内就不让系统进入闲置睡眠，SSH / 屏幕共享一直可达。主动选睡眠、按电源键照常生效。</div>
+            </div>
+            <input type="checkbox" id="keep-awake" />
+          </label>
+          <div class="warn subtle" id="presence-line">在场状态：检测中…</div>
+        </div>
+
+        <div class="card" id="card-auto-unlock">
+          <label class="switch-row">
+            <div class="label">
+              <div class="title">锁屏时自动解锁</div>
+              <div class="hint">遥控器在场且屏幕锁着时，把密码敲进登录窗。远程会话断开、触发角、闲置锁屏都算。</div>
+            </div>
+            <input type="checkbox" id="auto-unlock" />
+          </label>
+          <div class="warn">
+            这不是 Apple 的 Auto Unlock。密码由合成键盘事件敲入，能仿冒你遥控器的人就能解开这台 Mac。需要「权限」页的辅助功能授权。
+          </div>
+          <div class="app-add">
+            <input type="password" id="unlock-password" placeholder="macOS 登录密码" autocomplete="off" />
+            <button class="ghost sm" id="save-password">保存</button>
+            <button class="ghost sm" id="clear-password">清除</button>
+          </div>
+          <div class="warn subtle" id="password-state">密码：未设置</div>
+        </div>
       </section>
 
       <!-- 按键 -->
