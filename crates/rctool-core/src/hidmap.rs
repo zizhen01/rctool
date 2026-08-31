@@ -14,10 +14,12 @@
 
 use crate::keymap::{Disposition, Injection, KeyMap, Mods, RemoteButton};
 use core_foundation::base::TCFType;
+use core_foundation::boolean::CFBoolean;
 use core_foundation::dictionary::CFDictionary;
 use core_foundation::number::CFNumber;
 use core_foundation::string::CFString;
 use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease, CFTypeRef};
+use core_foundation_sys::dictionary::CFDictionaryRef;
 use core_foundation_sys::runloop::{
     kCFRunLoopCommonModes, CFRunLoopAddSource, CFRunLoopGetCurrent, CFRunLoopRef, CFRunLoopRun,
     CFRunLoopSourceRef, CFRunLoopStop,
@@ -133,6 +135,8 @@ extern "C" {
 #[link(name = "ApplicationServices", kind = "framework")]
 extern "C" {
     fn AXIsProcessTrusted() -> bool;
+    fn AXIsProcessTrustedWithOptions(options: CFDictionaryRef) -> bool;
+    static kAXTrustedCheckOptionPrompt: CFStringRef;
 }
 
 // CoreGraphics 常量
@@ -158,6 +162,7 @@ const FLAG_FN: u64 = 1 << 23;
 const IOHID_OPTIONS_NONE: u32 = 0;
 const IOHID_REQUEST_LISTEN_EVENT: u32 = 1; // kIOHIDRequestTypeListenEvent
 const IOHID_ACCESS_GRANTED: u32 = 0; // kIOHIDAccessTypeGranted
+const IOHID_ACCESS_UNKNOWN: u32 = 2; // kIOHIDAccessTypeUnknown（从未问过）
 
 /// 注入事件的来源标记，供拦截回调识别"这是我自己发的"从而放行。
 const SYNTHETIC_MARKER: i64 = 0x5243_5401; // "RCT\x01"
@@ -207,9 +212,28 @@ impl Permissions {
         }
     }
 
-    /// 弹出输入监控授权请求（系统对话框）。
+    /// 请求输入监控。仅在"从未问过"时才弹得出系统对话框；已被拒过的话
+    /// 系统不再弹，返回 false 让调用方改去开设置面板。
     pub fn request_input_monitoring() -> bool {
-        unsafe { IOHIDRequestAccess(IOHID_REQUEST_LISTEN_EVENT) }
+        unsafe {
+            if IOHIDCheckAccess(IOHID_REQUEST_LISTEN_EVENT) != IOHID_ACCESS_UNKNOWN {
+                return false;
+            }
+            IOHIDRequestAccess(IOHID_REQUEST_LISTEN_EVENT)
+        }
+    }
+
+    /// 请求辅助功能。没有静默授权 API，但这次调用会把本 app 登记进辅助功能
+    /// 列表——否则用户在设置里得自己用「+」把它加进去。
+    pub fn request_accessibility() -> bool {
+        unsafe {
+            let key = CFString::wrap_under_get_rule(kAXTrustedCheckOptionPrompt);
+            let options = CFDictionary::from_CFType_pairs(&[(
+                key.as_CFType(),
+                CFBoolean::true_value().as_CFType(),
+            )]);
+            AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef())
+        }
     }
 
     pub fn ready(self) -> bool {

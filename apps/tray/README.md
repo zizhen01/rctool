@@ -91,7 +91,7 @@ macOS 显示「连接/按键/应用/权限」四页；Windows 显示「连接」
 
 `get_config` `list_outputs` `get_actions` `get_buttons` `set_binding`
 `reset_bindings` `set_output` `set_gain` `set_fn_remap` `set_key_mapping`
-`get_permissions` `request_permissions` `start_bridge` `stop_bridge`
+`get_permissions` `request_input_monitoring` `request_accessibility` `start_bridge` `stop_bridge`
 
 按应用覆盖：`list_running_apps` `get_front_app` `get_app_profiles`
 `add_app_profile` `remove_app_profile` `set_app_profile_enabled`

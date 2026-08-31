@@ -590,11 +590,11 @@ async function refreshPermissions() {
 }
 
 $("#req-input").addEventListener("click", async () => {
-  await invoke("request_permissions");
+  await invoke("request_input_monitoring");
   setTimeout(refreshPermissions, 500);
 });
 $("#req-ax").addEventListener("click", async () => {
-  await invoke("request_permissions");
+  await invoke("request_accessibility");
   setTimeout(refreshPermissions, 500);
 });
 

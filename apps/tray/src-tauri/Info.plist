@@ -6,5 +6,8 @@
          缺少蓝牙用途声明的话，打包版访问 CoreBluetooth 会被 TCC 直接终止。 -->
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>RCTool 需要蓝牙权限以连接小米语音遥控器并接收语音。</string>
+    <!-- 输入监控请求对话框显示的说明文字（IOHIDRequestAccess 会读它）。 -->
+    <key>NSInputMonitoringUsageDescription</key>
+    <string>RCTool 需要输入监控权限以读取遥控器按键。</string>
 </dict>
 </plist>

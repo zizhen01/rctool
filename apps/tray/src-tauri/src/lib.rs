@@ -492,15 +492,38 @@ fn get_permissions() -> PermissionsDto {
     }
 }
 
+/// 打开「隐私与安全性」下的指定面板。anchor 为 TCC 服务名，如
+/// `Privacy_ListenEvent`（输入监控）、`Privacy_Accessibility`（辅助功能）。
+#[cfg(target_os = "macos")]
+fn open_privacy_pane(anchor: &str) {
+    let _ = std::process::Command::new("open")
+        .arg(format!(
+            "x-apple.systempreferences:com.apple.preference.security?{anchor}"
+        ))
+        .spawn();
+}
+
+/// 输入监控：读取遥控器 HID 报文所需。
 #[tauri::command]
-fn request_permissions() {
+fn request_input_monitoring() {
     #[cfg(target_os = "macos")]
     {
-        Permissions::request_input_monitoring();
-        // 辅助功能没有静默请求 API：打开系统设置对应面板。
-        let _ = std::process::Command::new("open")
-            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-            .spawn();
+        // 首次请求能弹出系统对话框；弹不出（已问过/已拒绝）就打开面板。
+        if !Permissions::request_input_monitoring() {
+            open_privacy_pane("Privacy_ListenEvent");
+        }
+    }
+}
+
+/// 辅助功能：注入按键与创建拦截 tap 所需。
+#[tauri::command]
+fn request_accessibility() {
+    #[cfg(target_os = "macos")]
+    {
+        // 先登记（否则设置列表里根本没有本 app），再打开面板让用户开开关。
+        if !Permissions::request_accessibility() {
+            open_privacy_pane("Privacy_Accessibility");
+        }
     }
     // Windows/Linux：桥接与听写触发不需要额外系统权限。
 }
@@ -845,7 +868,8 @@ pub fn run() {
             set_key_mapping,
             set_hide_dock_on_close,
             get_permissions,
-            request_permissions,
+            request_input_monitoring,
+            request_accessibility,
             setup_loopback,
             start_bridge,
             stop_bridge,
