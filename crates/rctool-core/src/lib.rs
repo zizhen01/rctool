@@ -31,6 +31,11 @@ pub mod frontapp;
 pub mod hidmap;
 pub mod keymap;
 pub mod loopback;
+#[cfg(target_os = "macos")]
+pub mod power;
+pub mod presence;
+#[cfg(target_os = "macos")]
+pub mod screen;
 pub mod session;
 pub mod sink;
 

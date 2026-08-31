@@ -59,6 +59,9 @@ pub struct BridgeOptions {
     /// macOS：连接后把遥控器的 F5（麦克风键）设备级重映射为 Fn/🌐，
     /// 配合系统「按住 🌐 开始听写」实现按住即听写；退出/断开自动恢复。
     pub fn_remap: bool,
+    /// 只连这一台（`bluest::DeviceId` 的字符串形式）。`None` = 第一台匹配的
+    /// 遥控器就用——未绑定时的历史行为。绑定后旁边同型号的遥控器不会被误连。
+    pub bound_id: Option<String>,
 }
 
 impl Default for BridgeOptions {
@@ -68,6 +71,7 @@ impl Default for BridgeOptions {
             reconnect_delay: Duration::from_secs(3),
             scan_timeout: Duration::from_secs(15),
             fn_remap: true,
+            bound_id: None,
         }
     }
 }
@@ -123,10 +127,16 @@ async fn find_device(
     opts: &BridgeOptions,
     shutdown: &CancellationToken,
 ) -> anyhow::Result<Option<Device>> {
+    let bound = opts.bound_id.as_deref();
+    let is_bound = |device: &Device| match bound {
+        Some(id) => device.id().to_string() == id,
+        None => true,
+    };
+
     // 主路径：系统已连接、且暴露 ATVV 服务的设备（macOS 日常场景）。
     match adapter.connected_devices_with_services(&[atvv::SERVICE]).await {
         Ok(devices) => {
-            if let Some(device) = devices.into_iter().next() {
+            if let Some(device) = devices.into_iter().find(&is_bound) {
                 log::info!("在系统已连接设备中找到遥控器");
                 return Ok(Some(device));
             }
@@ -144,7 +154,7 @@ async fn find_device(
             _ = shutdown.cancelled() => return Ok(None),
             _ = &mut deadline => return Ok(None),
             item = scan.next() => match item {
-                Some(adv) if advertisement_is_candidate(&adv) => {
+                Some(adv) if advertisement_is_candidate(&adv) && is_bound(&adv.device) => {
                     log::info!(
                         "扫描到遥控器: {}",
                         adv.adv_data.local_name.as_deref().unwrap_or("(无名称)")
